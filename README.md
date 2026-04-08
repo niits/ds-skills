@@ -19,6 +19,25 @@ Covers matplotlib/seaborn chart patterns for line plots, grouped bars, heatmaps,
 leaderboard charts, and multi-panel figures with colorblind-safe palettes and
 venue-specific sizing (NeurIPS, ICML, Nature, Science, Cell).
 
+### `storytelling-with-data/`
+
+Framework for communicating data findings to an audience. Covers general visualization principles
+and domain-specific chart patterns for financial services DS work.
+
+**General framework:** Six-step process — context-setting (Big Idea, audience tiers) → chart selection →
+clutter elimination → pre-attentive attention → Gestalt-based design → narrative arc.
+
+**Domain chart libraries** (under `references/domain/`):
+- Credit and risk analytics: KS curve, vintage, migration matrix, risk heatmap, bullet chart, PSI
+- Model evaluation: ROC, calibration, SHAP waterfall, feature importance, lift/gain
+- Fraud detection: anomaly time series, calendar heatmap, rolling z-score, scatter outlier
+- Customer analytics: cohort retention heatmap, funnel, segment profile, churn distribution, A/B test CI
+- Causal inference: coefficient plot, parallel trends, event study, RDD binned scatter, propensity overlap
+
+Includes `swd_style.py` helpers: `declutter()`, `apply_swd_palette()`, `annotate_insight()`,
+`risk_colormap()`, `psi_status()`, `waterfall_colors()`.
+Output rendered inline in Databricks notebooks via `display(fig)` and `displayHTML()`.
+
 ---
 
 ## Sources
@@ -30,6 +49,7 @@ Skills are adapted from the following open-source repositories:
 | `hypothesis-generation` | [K-Dense-AI/claude-scientific-skills — hypothesis-generation](https://github.com/K-Dense-AI/claude-scientific-skills/tree/main/scientific-skills/hypothesis-generation) | MIT |
 | `scientific-visualization` (core) | [K-Dense-AI/claude-scientific-skills — scientific-visualization](https://github.com/K-Dense-AI/claude-scientific-skills/tree/main/scientific-skills/scientific-visualization) | MIT |
 | `scientific-visualization` (ML chart patterns) | [Orchestra-Research/AI-Research-SKILLs — academic-plotting](https://github.com/Orchestra-Research/AI-Research-SKILLs/tree/main/20-ml-paper-writing/academic-plotting) | MIT |
+| `storytelling-with-data` | Adapted from *Storytelling with Data* by Cole Nussbaumer Knaflic (Wiley, 2015) | — |
 
 ### Adaptations
 

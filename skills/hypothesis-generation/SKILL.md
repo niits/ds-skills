@@ -54,7 +54,14 @@ Search existing scientific literature to ground hypotheses in current evidence. 
 - Search for established theories, mechanisms, or frameworks
 - Identify gaps in current understanding
 
-**Search strategy:**
+**If no public literature applies (proprietary data, internal product metrics):**
+Skip external search. Use internal evidence as the evidence base:
+- EDA summaries and exploratory notebooks
+- Prior experiment logs and A/B test results
+- Domain expert interviews and historical baselines
+Proceed directly to Step 3 with these as inputs. "Literature-based" steps are optional, not required.
+
+**Search strategy (when literature exists):**
 - Begin with broad searches to understand the landscape
 - Narrow to specific mechanisms, pathways, or theories
 - Look for contradictory findings or unresolved debates
@@ -70,9 +77,25 @@ Analyze and integrate findings from literature search:
 - Recognize gaps, limitations, or unanswered questions
 - Identify analogies from related systems or domains
 
+### 3b. Prioritize Before Generating (When Resources Are Limited)
+
+If you have limited time or experiment budget, rank hypotheses by:
+1. **Lift potential** — if true, how much does it move the primary metric?
+2. **Test cost** — how much time/data does validation require?
+3. **Existing signal** — can existing data partially eliminate this hypothesis before running an experiment?
+
+Hypotheses that can be eliminated with existing data should be ruled out first. Do not design a full experiment for a hypothesis that historical data already answers.
+
+**DS-native hypothesis template:**
+> "If [feature/intervention X] then [metric Y] changes by [direction/magnitude Z] in [population/segment W] because [mechanism]."
+
+Example: "If we add recency score as a feature, then AP on the holdout set increases by ≥ 0.03 in the high-value segment because recency captures intent signal currently missing from the model."
+
+---
+
 ### 4. Generate Competing Hypotheses
 
-Develop 3-5 distinct hypotheses that could explain the phenomenon. Each hypothesis should:
+Develop 3–5 distinct hypotheses for mechanistic studies; 1–2 for sprint/exploratory contexts (label scope explicitly). Each hypothesis should:
 
 - Provide a mechanistic explanation (not just description)
 - Be distinguishable from other hypotheses
@@ -90,13 +113,13 @@ Develop 3-5 distinct hypotheses that could explain the phenomenon. Each hypothes
 
 Assess each hypothesis against established quality criteria from `references/hypothesis_quality_criteria.md`:
 
-**Testability:** Can the hypothesis be empirically tested?
-**Falsifiability:** What observations would disprove it?
-**Parsimony:** Is it the simplest explanation that fits the evidence?
+**Testability:** Can the hypothesis be empirically tested? *(DS: is there a holdout set or A/B experiment that could confirm/reject it?)*
+**Falsifiability:** What observations would disprove it? *(DS: define the metric threshold that rejects the hypothesis, e.g. "AP improvement < 0.02 on holdout")*
+**Parsimony:** Is it the simplest explanation that fits the evidence? *(DS: prefer fewer features / simpler mechanisms over complex multi-factor explanations)*
 **Explanatory Power:** How much of the phenomenon does it explain?
 **Scope:** What range of observations does it cover?
 **Consistency:** Does it align with established principles?
-**Novelty:** Does it offer new insights beyond existing explanations?
+**Novelty:** Does it offer new insights beyond existing explanations? *(Lower priority in business contexts — correctness and testability matter more than novelty)*
 
 Explicitly note the strengths and weaknesses of each hypothesis.
 
@@ -112,9 +135,9 @@ For each viable hypothesis, propose specific experiments or studies to test it. 
 - What are potential confounds and how to address them?
 
 **Consider multiple approaches:**
-- Laboratory experiments (in vitro, in vivo, computational)
+- Data science experiments (A/B test, holdout group, simulation, champion-challenger)
 - Observational studies (cross-sectional, longitudinal, case-control)
-- Clinical trials (if applicable)
+- Laboratory experiments (in vitro, in vivo) — for biomedical/scientific domains only
 - Natural experiments or quasi-experimental designs
 
 ### 7. Formulate Testable Predictions
@@ -129,76 +152,58 @@ For each hypothesis, generate specific, quantitative predictions:
 
 ### 8. Present Structured Output (Databricks Notebook)
 
-Generate output as a Databricks-compatible Markdown report. Use `displayHTML()` for colored visual sections or write Markdown cells using `%md`. Do NOT generate LaTeX or compile PDFs.
-
-**Output format:**
-
-Write the full report as a Python string passed to `displayHTML()`, or output clean Markdown that can be pasted into a `%md` cell.
+Write all output as Markdown in `%md` cells. Do NOT use `displayHTML()` or generate LaTeX or PDFs.
 
 **Report structure:**
 
 1. **Executive Summary** — brief overview of the phenomenon and top hypothesis
-2. **Competing Hypotheses** — each in a colored HTML block (see template below)
-3. **Testable Predictions** — key predictions per hypothesis
+2. **Competing Hypotheses** — one `%md` section per hypothesis (template below)
+3. **Testable Predictions** — table format
 4. **Critical Comparisons** — which experiments best distinguish hypotheses
 5. **References** — inline citations with author/year/title
 
-**HTML block template for each hypothesis:**
+**Hypothesis block template (`%md` cell):**
 
-```python
-displayHTML("""
-<div style="background:#e8f4fd;border-left:5px solid #2196F3;padding:16px;margin:12px 0;border-radius:4px">
-  <h3 style="color:#1565C0;margin:0 0 8px 0">Hypothesis 1: [Title]</h3>
-  <p><b>Mechanism:</b> ...</p>
-  <p><b>Key Evidence:</b></p>
-  <ul>
-    <li>...</li>
-  </ul>
-  <p><b>Core Assumptions:</b> ...</p>
-</div>
-""")
+```markdown
+### Hypothesis 1: [Title]
+
+**Mechanism:** ...
+
+**Key Evidence:**
+- ...
+- ...
+
+**Core Assumptions:** ...
+
+**Falsification condition:** If [observable outcome], this hypothesis is rejected.
 ```
 
-**Color palette for hypothesis blocks (use in order):**
+**Predictions table template:**
 
-| Hypothesis | Background | Border |
+```markdown
+### Testable Predictions
+
+| Hypothesis | If true, we expect | Falsified if |
 |---|---|---|
-| H1 | `#e8f4fd` | `#2196F3` (blue) |
-| H2 | `#e8f5e9` | `#4CAF50` (green) |
-| H3 | `#f3e5f5` | `#9C27B0` (purple) |
-| H4 | `#e0f2f1` | `#009688` (teal) |
-| H5 | `#fff3e0` | `#FF9800` (orange) |
-
-**Predictions block:**
-
-```python
-displayHTML("""
-<div style="background:#fffde7;border-left:5px solid #FFC107;padding:16px;margin:12px 0;border-radius:4px">
-  <h3 style="color:#F57F17;margin:0 0 8px 0">Testable Predictions</h3>
-  <ul>
-    <li><b>H1:</b> ...</li>
-    <li><b>H2:</b> ...</li>
-  </ul>
-</div>
-""")
+| H1: [Title] | [direction + metric + magnitude] | [threshold not met] |
+| H2: [Title] | ... | ... |
 ```
 
-**Comparison block:**
+**Critical comparisons template:**
 
-```python
-displayHTML("""
-<div style="background:#f5f5f5;border-left:5px solid #607D8B;padding:16px;margin:12px 0;border-radius:4px">
-  <h3 style="color:#37474F;margin:0 0 8px 0">Critical Comparisons</h3>
-  <p>...</p>
-</div>
-""")
+```markdown
+### Critical Comparisons
+
+| Experiment | Distinguishes | Expected outcome per hypothesis |
+|---|---|---|
+| [Experiment name] | H1 vs H2 | H1: ..., H2: ... |
 ```
 
-**Citation format:** Use inline author-year style: `(Smith et al., 2023)`. List full references at the end of the notebook in a `%md` cell.
+**Citation format:** Inline author-year: `(Smith et al., 2023)`. Full references in a final `%md` cell.
 
 **Citation targets:**
-- Main body: 10–15 key citations
-- Reference list: 40–70+ covering all relevant literature
+- Main body: 5–10 key citations for DS/business contexts; 10–15 for scientific/mechanistic studies
+- Reference list: include all cited sources
 
 ---
 

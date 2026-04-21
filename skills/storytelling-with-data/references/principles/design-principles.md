@@ -47,7 +47,7 @@ The eye follows lines and curves; it expects paths to continue smoothly.
 ---
 
 ### 5. Connection
-Explicitly connected elements are perceived as more strongly related than proximity alone.
+Explicitly connected elements are perceived as more strongly related than proximity alone. (Note: "Connection" as a distinct principle was added by Palmer & Rock 1994 — it is not part of the original Gestalt framework from Wertheimer/Köhler/Koffka.)
 
 **Application:**
 - Lines in a slope chart connect the "before" and "after" states — the line IS the change
@@ -87,6 +87,7 @@ An affordance is a design property that makes the correct behavior obvious.
 - [ ] Can the chart be understood in grayscale? → If not, add texture or direct labels
 - [ ] Using the Okabe-Ito palette? → It is colorblind-safe by design: `#E69F00`, `#56B4E9`, `#009E73`, `#F0E442`, `#0072B2`, `#D55E00`, `#CC79A7`, `#000000`
 - [ ] Test with a colorblind simulator: paste your screenshot into Coblis or Viz Palette
+- [ ] Print to grayscale (File → Print → Black & White preview): board packs and regulatory submissions are often printed in black & white — every chart must be readable without color
 
 ### Typography
 

@@ -1,11 +1,11 @@
 ---
 name: storytelling-with-data
-description: Transforms data into compelling visual stories for financial services DS contexts. Covers the six-step communication framework (context → chart → clutter → attention → design → story) plus credit and risk analytics chart patterns (KS curve, vintage, migration matrix, risk heatmap, ROC/calibration, SHAP, PSI), multi-tier audience design (executive/committee/regulator/DS), and trustworthiness principles for regulated environments. Renders output in Databricks notebooks via display(fig) and displayHTML().
+description: Transforms data into compelling visual stories for financial services DS contexts. Covers the six-step communication framework (context → chart → clutter → attention → design → story) plus credit and risk analytics chart patterns (KS curve, vintage, migration matrix, risk heatmap, ROC/calibration, SHAP, PSI), multi-tier audience design (executive/committee/regulator/DS), and trustworthiness principles for regulated environments. Renders output in Databricks notebooks via display(fig) for figures and %md cells for narrative.
 allowed-tools: Read Write Edit Bash
 license: MIT license
 metadata:
     skill-author: Synthesized from visualization and data communication principles
-    adapted-for: Databricks (inline display via display(fig) and displayHTML())
+    adapted-for: Databricks (figures via display(fig), narrative via %md cells)
 ---
 
 # Storytelling with Data
@@ -211,7 +211,7 @@ Consult `references/principles/narrative-structure.md` for story templates, slid
 
 When a user brings data to communicate, follow this sequence:
 
-1. **Elicit context** — Ask who the audience is and what action is needed. Do not proceed without a Big Idea.
+1. **Elicit context** — Ask who the audience is and what action is needed. Do not proceed without a Big Idea. If stakeholder access is not available (data dump, no brief), infer audience from report type (model validation → Risk Committee; board pack → Executive) and document assumptions explicitly.
 2. **Audit the current visual** (if one exists) — Apply the clutter checklist. List every element that should be removed.
 3. **Select or confirm chart type** — Justify with the chart selection guide.
 4. **Apply the declutter template** — Use `declutter(ax)` + strip spines.
@@ -224,15 +224,21 @@ When a user brings data to communicate, follow this sequence:
 
 ## Databricks Quick Start
 
+**Preferred: use the shared NYT theme** — consistent style across all skills, slide-optimized by default.
+
+```python
+import sys
+sys.path.insert(0, '/dbfs/FileStore/ds-skills/shared')
+from nyt_theme import apply_nyt_all, NYT, FIG_HALF_SLIDE, FIG_SLIDE
+
+apply_nyt_all()   # sets matplotlib rcParams + Plotly template (base_size=15, context='slide')
+```
+
+Then build charts. The accent + gray SWD pattern still applies; use `NYT.HIGHLIGHT` (blue) as the accent and `NYT.BASELINE` (#CCCCCC) for context series.
+
 ```python
 import matplotlib.pyplot as plt
-import matplotlib.patches as mpatches
 import numpy as np
-
-# SWD color constants
-GRAY_LIGHT  = '#CCCCCC'
-GRAY_MED    = '#888888'
-ACCENT      = '#E8664A'
 
 # --- Data ---
 categories = ['Product A', 'Product B', 'Product C', 'Product D', 'Product E']
@@ -240,29 +246,26 @@ values     = [42, 78, 55, 91, 63]
 highlight  = 3   # index of the bar we want the audience to focus on
 
 # --- Build chart ---
-fig, ax = plt.subplots(figsize=(6, 3.5))
+# FIG_SLIDE = (12.0, 4.2) — single chart in content area (header+body text+footnote live outside the figure)
+# FIG_HALF_SLIDE = (5.8, 4.2) — when placing two charts side by side
+fig, ax = plt.subplots(figsize=FIG_HALF_SLIDE)   # horizontal bar fits better in a half-width slot
 
-colors = [ACCENT if i == highlight else GRAY_LIGHT for i in range(len(categories))]
+colors = [NYT.HIGHLIGHT if i == highlight else NYT.BASELINE for i in range(len(categories))]
 bars = ax.barh(categories, values, color=colors, height=0.55)
 
-# Eliminate clutter
-ax.spines['top'].set_visible(False)
-ax.spines['right'].set_visible(False)
-ax.spines['left'].set_visible(False)
-ax.spines['bottom'].set_visible(False)
+# apply_nyt_all() already removed top/right/left spines — just hide x-axis
 ax.xaxis.set_visible(False)
-ax.tick_params(left=False)
+ax.spines['bottom'].set_visible(False)
 
 # Direct labels — no axis needed
 for bar, val in zip(bars, values):
     ax.text(bar.get_width() + 1, bar.get_y() + bar.get_height() / 2,
-            f'{val}%', va='center', fontsize=9,
-            color=ACCENT if val == values[highlight] else GRAY_MED,
+            f'{val}%', va='center',
+            color=NYT.HIGHLIGHT if val == values[highlight] else NYT.MID,
             fontweight='bold' if val == values[highlight] else 'normal')
 
-# Title IS the insight
-ax.set_title('Product D leads with 91% satisfaction — 13 pts above average',
-             fontsize=11, fontweight='bold', color='#222222', loc='left', pad=12)
+# Title IS the insight (left-aligned automatically via apply_nyt_all)
+ax.set_title('Product D leads with 91% satisfaction — 13 pts above average')
 
 display(fig)
 plt.close(fig)
@@ -289,13 +292,15 @@ A KS curve in an executive slide will confuse; a single summary number in a risk
 
 Visualizations in formal reports — model validation documents, regulatory submissions, audit trails — carry an obligation of accuracy that goes beyond aesthetic choices.
 
-**Non-negotiable rules:**
+**Best practices for formal reports** (inspired by SR 11-7, BCBS 239, and EBA model risk guidelines — these are industry best practices, not formal regulatory requirements; confirm with your compliance team):
 - Bar charts must start at 0 — a cropped y-axis artificially inflates differences
-- Dual y-axis must not be used in formal reports — the relationship between two arbitrary scales is misleading
+- Dual y-axis: avoid in most cases — scales are arbitrary and the relationship misleads. Exception: when two metrics share a meaningful common axis (e.g., approval rate % and default rate % plotted over score cutoff), dual y-axis is acceptable with explicit axis labels and a note justifying the pairing
 - Sample size and observation period must be stated on every chart
 - Trend lines must declare the method (rolling average, linear regression, LOWESS)
 - Color must not be the sole information carrier — annotate values directly
 - All charts in versioned reports carry a data-as-of date
+
+**When data contradicts the expected narrative:** Do not force-fit the visualization to the original Big Idea. In regulated contexts, revise the Big Idea to reflect what the data shows, document the revision, and escalate to the model owner if the finding changes a business decision. Visualizing misleading conclusions in a regulatory submission is a compliance risk, not just a design problem.
 
 ### Task Map by Domain
 
@@ -378,8 +383,9 @@ Communication and design fundamentals — apply to all chart types.
 - `chart-selection.md` — Chart decision guide with code templates for each type
 - `clutter-elimination.md` — Declutter checklist, data-ink ratio, before/after examples
 - `pre-attentive-attributes.md` — Pre-attentive attribute reference with code patterns
-- `design-principles.md` — Gestalt principles, accessibility checklist, typography
+- `design-principles.md` — Gestalt principles, accessibility checklist (incl. grayscale), typography
 - `narrative-structure.md` — Story arc templates, annotation guide, slide title rules
+- `audience-adaptation.md` — Adapting one analysis into Executive / Risk Committee / Regulator / Practitioner deliverables; domain examples (KS, model metrics → business language)
 
 ### references/domain/
 Domain-specific chart patterns with ready-to-run code.
@@ -393,3 +399,6 @@ Domain-specific chart patterns with ready-to-run code.
 ### scripts/
 - `swd_style.py` — General: `declutter()`, `apply_swd_palette()`, `annotate_insight()`, `insight_title()`, `label_bars()`, `highlight_region()`
                    Domain: `risk_colormap()`, `psi_status()`, `fmt_pct()`, `fmt_bps()`, `waterfall_colors()`
+
+### shared/ (cross-skill)
+- `../shared/nyt_theme.py` — Unified NYT style for matplotlib, Plotly, plotnine. Slide-first defaults (base_size=15, 16:9 figsize). Key exports: `apply_nyt_all()`, `apply_nyt_notebook()`, `NYT` (colors), `FIG_SLIDE`, `FIG_HALF_SLIDE`, `theme_nyt()`

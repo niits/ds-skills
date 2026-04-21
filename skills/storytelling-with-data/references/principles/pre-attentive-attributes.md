@@ -1,6 +1,6 @@
 # Pre-Attentive Attributes
 
-Pre-attentive attributes are visual properties that the human brain processes in under 250 milliseconds — before conscious attention is applied. They are the tools for directing the audience's eye to exactly what matters.
+Pre-attentive attributes are visual properties that the human brain processes in under 250 milliseconds — before conscious attention is applied. (Treisman & Gelade 1980, *Cognitive Psychology*; popularized for data visualization by Healey & Enns 2012 and Knaflic *Storytelling with Data* 2015.) They are the tools for directing the audience's eye to exactly what matters.
 
 ## The Core Principle
 

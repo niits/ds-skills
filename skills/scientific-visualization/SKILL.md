@@ -11,7 +11,7 @@ metadata:
 
 ## Overview
 
-Generate publication-quality figures and display them inline in Databricks notebooks using `display(fig)`. No file export — all output is rendered in the notebook.
+Generate publication-quality figures and display them inline in Databricks notebooks using `display(fig)`. Primary output is inline rendering; for journal submission export see the file export snippet in Common Issues below.
 
 ---
 
@@ -19,7 +19,14 @@ Generate publication-quality figures and display them inline in Databricks noteb
 
 ### Loading style helpers
 
-Upload `scripts/` and `assets/` to DBFS once, then add them to `sys.path`:
+Upload `scripts/` and `assets/` to DBFS once, then verify the path exists before adding to `sys.path`:
+
+```python
+# Verify upload before importing
+dbutils.fs.ls('dbfs:/FileStore/ds-skills/scientific-visualization/scripts/')
+```
+
+Then add to path:
 
 ```python
 import sys
@@ -106,7 +113,8 @@ plt.rcParams.update({
     "lines.linewidth": 1.8, "lines.markersize": 5,
 })
 
-# "Ocean Dusk" palette — colorblind-safe
+# Custom palette — NOT verified colorblind-safe; use apply_palette('okabe_ito') for guaranteed safety
+# Okabe-Ito verified safe: #E69F00, #56B4E9, #009E73, #F0E442, #0072B2, #D55E00, #CC79A7
 COLORS = ["#264653", "#2A9D8F", "#E9C46A", "#F4A261", "#E76F51",
           "#0072B2", "#56B4E9", "#8C8C8C"]
 OUR_COLOR = "#E76F51"       # coral — stands out for "our method"
@@ -240,7 +248,7 @@ See `references/color_palettes.md` for full palette guide.
 
 ### Typography
 
-- Minimum 6-8 pt at final display size
+- Minimum 6 pt at final display size (Nature ≥ 5 pt, IEEE ≥ 6 pt — check venue author guide)
 - Sentence case: "Time (hours)" not "TIME (HOURS)"
 - Always include units in parentheses
 - Remove top and right spines: `ax.spines['top'].set_visible(False)`
@@ -255,6 +263,8 @@ See `references/color_palettes.md` for full palette guide.
 ---
 
 ## Venue-Specific Sizing
+
+**Note:** These sizes reflect common templates but change yearly — always verify against the current author guide before camera-ready submission. Exploratory/draft figures can use any size; final submission figures must match venue specs exactly.
 
 | Venue | Single Column | Full Width |
 |-------|--------------|------------|
@@ -302,3 +312,4 @@ See `references/color_palettes.md` for full palette guide.
 | Font too small | Minimum 6-7 pt; verify at intended display size |
 | Blank output in notebook | Use `display(fig)` not `plt.show()` |
 | Memory leak from many figures | Call `plt.close(fig)` after each `display(fig)` |
+| Need to submit figure file (PDF/EPS/TIFF) | Use `fig.savefig('fig1.pdf', dpi=300, bbox_inches='tight')` after `display(fig)` — PDF is vector and preferred by most journals; TIFF at 300 DPI for raster |

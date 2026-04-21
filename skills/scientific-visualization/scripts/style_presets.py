@@ -122,13 +122,32 @@ def apply_publication_style(style_name: str = 'default') -> None:
         - 'cell': Cell Press style
         - 'minimal': Minimal clean style
         - 'presentation': Larger fonts for presentations
+        - 'nyt': New York Times editorial style, slide-optimized (base_size=15)
+        - 'nyt_notebook': NYT style tuned for notebook inline display (base_size=11)
 
     Examples
     --------
-    >>> apply_publication_style('nature')
-    >>> fig, ax = plt.subplots()
+    >>> apply_publication_style('nyt')
+    >>> fig, ax = plt.subplots(figsize=(13.3, 7.5))   # FIG_SLIDE
     >>> ax.plot([1, 2, 3], [1, 4, 9])
     """
+    if style_name in ('nyt', 'nyt_notebook'):
+        try:
+            import sys, os
+            # locate shared/ relative to this file's location
+            _shared = os.path.join(os.path.dirname(__file__), '..', '..', 'shared')
+            if _shared not in sys.path:
+                sys.path.insert(0, _shared)
+            from nyt_theme import apply_nyt_mpl, apply_nyt_notebook
+            if style_name == 'nyt':
+                apply_nyt_mpl(base_size=15)
+            else:
+                apply_nyt_notebook()
+            print(f"✓ Applied '{style_name}' style via nyt_theme")
+        except ImportError:
+            print("nyt_theme not found — check that skills/shared/nyt_theme.py is on sys.path")
+        return
+
     base_style = get_base_style()
 
     # Style-specific modifications

@@ -1,622 +1,326 @@
-# Literature Search Strategies
+# Literature Search Strategies — Banking Domain
 
-## Effective Techniques for Finding Scientific Evidence
+## Finding Evidence for Banking DS Hypotheses
 
-Comprehensive literature search is essential for grounding hypotheses in existing evidence. This reference provides strategies for both PubMed (biomedical literature) and general scientific search.
+In banking DS, the primary evidence base is internal. External literature is used to:
+- Validate that a proposed mechanism is theoretically sound
+- Find precedent for a methodology (required by model validators)
+- Understand industry benchmarks and failure patterns
+- Support regulatory filings (NHNN, Basel)
 
-## Search Strategy Framework
+**Do not spend more than 30–60 minutes on external search for sprint-level investigations.** Reserve deep literature search for formal model validation documents, research initiatives, and methodology papers.
 
-### Three-Phase Approach
+---
 
-1. **Broad exploration:** Understand the landscape and identify key concepts
-2. **Focused searching:** Target specific mechanisms, theories, or findings
-3. **Citation mining:** Follow references and related articles from key papers
+## Evidence Hierarchy in Banking DS
 
-### Before You Search
+Rank evidence sources in this order. Higher is stronger.
 
-**Clarify search goals:**
-- What aspects of the phenomenon need evidence?
-- What types of studies are most relevant (reviews, primary research, methods)?
-- What time frame is relevant (recent only, or historical context)?
-- What level of evidence is needed (mechanistic, correlational, causal)?
+| Tier | Source | Use |
+|---|---|---|
+| **1 — Internal primary data** | Model monitoring reports, vintage performance, PSI/CSI logs | First stop for any investigation |
+| **2 — Internal historical** | Prior validation reports, model inventory, A/B test logs, credit committee minutes | Context on known model weaknesses and decisions |
+| **3 — Regulatory guidance** | NHNN circulars, Basel III, IFRS 9, EBA guidelines | Methodology requirements, definitions |
+| **4 — Industry methodology** | BIS working papers, Moody's Analytics, Oliver Wyman, McKinsey | Applied techniques, benchmarks |
+| **5 — Academic literature** | SSRN, Journal of Credit Risk, Journal of Banking & Finance | Theoretical foundations, novel methods |
 
-## PubMed Search Strategies
+---
 
-### When to Use PubMed
+## Internal Sources — Search First
 
-Use WebFetch with PubMed URLs for:
-- Biomedical and life sciences research
-- Clinical studies and medical literature
-- Molecular, cellular, and physiological mechanisms
-- Disease etiology and pathology
-- Drug and therapeutic research
+### Model Monitoring Reports
 
-### Effective PubMed Search Techniques
+**What to look for:** PSI, CSI, Gini/KS trend, calibration drift, approval rate trend, vintage performance curves.
 
-#### 1. Start with Review Articles
+**Where to find:**
+- Model Risk Management (MRM) team quarterly reports
+- Risk MIS / BI dashboard (Databricks SQL, PowerBI)
+- IFRS 9 ECL back-testing reports
 
-**Why:** Reviews synthesize literature, identify key concepts, and provide comprehensive reference lists.
+**Search approach:**
+- Pull PSI by feature for the last 6–12 months → identifies drifting features
+- Pull KS/AUC by origination vintage → identifies when degradation started
+- Compare score distribution (CSI) between training population and recent originations
+
+### Model Inventory and Validation Reports
+
+**What to look for:** Known limitations documented in prior validation, conditions for model use, approved feature list, monitoring thresholds.
+
+**Why critical:** Validators will reference prior validation findings. If your hypothesis proposes a fix for a previously identified weakness, cite the original finding.
+
+**Search approach:**
+- Check model inventory for current model version, approval date, and outstanding conditions
+- Read the "Model Limitations" and "Recommended Monitoring" sections of the last validation report
+- Check if the current issue was flagged as a known risk in prior validation
+
+### Credit Committee and Strategy Papers
+
+**What to look for:** Policy changes that coincide with performance degradation (cutoff moves, new channel launches, product changes, collection strategy pivots).
+
+**Why critical:** Many "model performance issues" are actually policy changes that altered the application population. The model is stable; the population shifted.
+
+**Search approach:**
+- Request credit strategy papers from the past 12 months
+- Match dates of origination strategy changes to vintage performance degradation start dates
+
+### Data Lineage and ETL Documentation
+
+**What to look for:** Changes to source systems, field definitions, imputation logic, upstream ETL jobs, bureau product subscriptions.
+
+**Why critical:** The most common cause of sudden performance degradation in production is an upstream data change that was not communicated to the model team.
+
+**Search approach:**
+- Check data quality reports for missing rate trends on key model features
+- Query feature value distributions before and after the suspected change date
+- Contact data engineering team for ETL change log around the degradation period
+
+---
+
+## Regulatory Sources
+
+### NHNN / State Bank of Vietnam
+
+**URL:** sbv.gov.vn / vbpl.vn
+
+**Key documents for banking DS:**
+- Circular 41/2016/TT-NHNN: Credit risk capital requirements (IRB approach, PD/LGD/EAD definitions)
+- Circular 11/2021/TT-NHNN: Debt classification and provisioning (relevant for IFRS 9 alignment)
+- Circular 13/2018/TT-NHNN: Internal capital adequacy assessment process (ICAAP)
+- Decision 493/2005/QD-NHNN: Credit risk classification (5-group classification system)
 
 **Search strategy:**
-- Add "review" to search terms
-- Use PubMed filters: Article Type → Review, Systematic Review, Meta-Analysis
-- Look for recent reviews (last 2-5 years)
+- Search "Circular [number]" on vbpl.vn for official Vietnamese text
+- For English summaries: search "[circular number] NHNN English" on BIS website or law firm publications
+- When citing in reports: use full circular number and issue date
 
-**Example searches:**
-- `https://pubmed.ncbi.nlm.nih.gov/?term=wound+healing+diabetes+review`
-- `https://pubmed.ncbi.nlm.nih.gov/?term=gut+microbiome+cognition+systematic+review`
+### Basel Committee (BIS)
 
-#### 2. Use MeSH Terms (Medical Subject Headings)
+**URL:** bis.org/bcbs
 
-**Why:** MeSH terms are standardized vocabulary that captures concept variations.
+**Key documents:**
+- Basel III: Capital requirements for credit, market, and operational risk
+- BCBS 239: Principles for effective risk data aggregation (model data quality)
+- BCBS d445: Supervisory guidance on model risk management (direct equivalent of SR 11-7)
+- CP 15: Climate-related financial risks (growing importance for ESG credit modeling)
 
-**Strategy:**
-- PubMed auto-suggests MeSH terms
-- Helps find papers using different terminology for same concept
-- More comprehensive than keyword-only searches
+**Search strategy:**
+- Use BIS search: `site:bis.org [topic]` or bis.org/search
+- Filter by "BCBS" (Basel Committee documents) vs "BIS Research" (working papers)
+- Working papers (BIS WP series) are pre-publication research — cite with "forthcoming" or paper number
 
-**Example:**
-- Instead of just "heart attack," use MeSH term "Myocardial Infarction"
-- Captures papers using "MI," "heart attack," "cardiac infarction," etc.
+### SR 11-7 Equivalent (US Federal Reserve — widely adopted as industry standard)
 
-#### 3. Boolean Operators and Advanced Syntax
+**SR 11-7:** "Guidance on Model Risk Management" — the de facto global standard for banking model governance, widely referenced in Vietnamese bank model risk policies.
 
-**AND:** Narrow search (all terms must be present)
-- `diabetes AND wound healing AND inflammation`
+**Key principles for hypothesis work:**
+- Models require documented conceptual soundness (literature support for the methodology)
+- Champion-challenger is the standard for model comparison
+- Ongoing monitoring requires documented thresholds and escalation procedures
 
-**OR:** Broaden search (any term can be present)
-- `(Alzheimer OR dementia) AND gut microbiome`
+**Where to find:** federalreserve.gov/supervisionreg/srletters/sr1107.htm
 
-**NOT:** Exclude terms
-- `cancer treatment NOT surgery`
+### IFRS 9 (for credit provisioning models)
 
-**Quotes:** Exact phrases
-- `"oxidative stress"`
+**Key documents:**
+- IFRS 9 Financial Instruments (IASB) — the standard itself
+- EBA Guidelines on PD estimation, LGD estimation, and treatment of defaulted exposures
+- Basel BCBS d350: Guidance on credit risk and accounting for expected credit losses
 
-**Wildcards:** Variations
-- `gene*` finds gene, genes, genetic, genetics
+---
 
-#### 4. Filter by Publication Type and Date
+## Industry Methodology Sources
 
-**Publication types:**
-- Clinical Trial
-- Meta-Analysis
-- Systematic Review
-- Research Support, NIH
-- Randomized Controlled Trial
+### BIS Working Papers (bis.org/research)
 
-**Date filters:**
-- Recent work (last 2-5 years): Cutting-edge findings
-- Historical work: Foundational studies
-- Specific time periods: Track development of understanding
+**What to find here:**
+- Central bank research on credit risk through the cycle
+- PD/LGD estimation methodologies
+- Macro-financial models and stress testing frameworks
+- Digital finance and algorithmic credit scoring research
 
-#### 5. Use "Similar Articles" and "Cited By"
+**Search strategy:**
+- bis.org/research → Working Papers → search by keyword
+- Good search terms: `credit scoring machine learning`, `PD estimation Basel`, `behavioral scoring`, `IFRS 9 ECL methodology`, `fraud detection neural network`
+- Filter by year (last 3 years for current methods)
 
-**Strategy:**
-- Find one highly relevant paper
-- Click "Similar articles" for related work
-- Use cited by tools to find newer work building on it
+### SSRN — Social Science Research Network
 
-### PubMed Search Examples by Hypothesis Goal
+**URL:** ssrn.com
 
-**Mechanistic understanding:**
-```
-https://pubmed.ncbi.nlm.nih.gov/?term=(mechanism+OR+pathway)+AND+[phenomenon]+AND+(molecular+OR+cellular)
-```
+**Relevant networks:**
+- Financial Economics Network → Banking & Financial Institutions
+- Econometrics → Applied Econometrics
+- Operations Research → Risk Management
 
-**Causal relationships:**
-```
-https://pubmed.ncbi.nlm.nih.gov/?term=[exposure]+AND+[outcome]+AND+(randomized+controlled+trial+OR+cohort+study)
-```
+**What to find here:**
+- Pre-publication versions of academic papers (free, before journal paywall)
+- Industry practitioner papers
+- Conference presentations from RiskMinds, GARP, CRO Forum
 
-**Biomarkers and associations:**
-```
-https://pubmed.ncbi.nlm.nih.gov/?term=[biomarker]+AND+[disease]+AND+(association+OR+correlation+OR+prediction)
-```
+**Search strategy:**
+- `"credit scoring" machine learning` — current ML methods for credit
+- `"probability of default" estimation Vietnam` — local market evidence
+- `"champion challenger" model validation` — methodology papers
+- `fraud detection XGBoost banking` — applied fraud methods
+- `SHAP credit risk explanation` — explainability in regulated models
 
-**Treatment effectiveness:**
-```
-https://pubmed.ncbi.nlm.nih.gov/?term=[intervention]+AND+[condition]+AND+(efficacy+OR+effectiveness+OR+clinical+trial)
-```
+### Moody's Analytics and S&P Global
 
-## General Scientific Web Search Strategies
+**What to find here:**
+- Methodology papers for RiskCalc, CreditEdge (commercial PD models)
+- Annual default studies with empirical PD benchmarks by rating, industry, region
+- Stress testing frameworks and ECL methodology guides
 
-### When to Use Web Search
+**Access:** Moody's research hub (moodysanalytics.com) — may require subscription. Key free resource: Annual Default Study (published each year, widely cited).
 
-Use WebSearch for:
-- Non-biomedical sciences (physics, chemistry, materials, earth sciences)
-- Interdisciplinary topics
-- Recent preprints and unpublished work
-- Grey literature (technical reports, conference proceedings)
-- Broader context and cross-domain analogies
+**Useful for:** Benchmarking your PD model against observed industry default rates. "Is a 3.5% predicted PD for this segment reasonable?" → check Moody's default study for comparable obligors.
 
-### Effective Web Search Techniques
+### Oliver Wyman, McKinsey Global Banking Practice, BCG
 
-#### 1. Use Domain-Specific Search Terms
+**What to find here:**
+- Industry benchmarks for credit model performance
+- Best practice papers on digital lending, fraud, AML
+- Market-level data on default rates, NPA ratios, credit growth
 
-**Include field-specific terminology:**
-- Chemistry: "mechanism," "reaction pathway," "synthesis"
-- Physics: "model," "theory," "experimental validation"
-- Materials science: "properties," "characterization," "synthesis"
-- Ecology: "population dynamics," "community structure"
+**Access:** Reports published on firm websites (free) or through industry association partnerships.
 
-#### 2. Target Academic Sources
+**Search strategy:** Google `"Oliver Wyman" credit risk model 2024` or `"McKinsey" banking fraud detection report`
 
-**Search operators:**
-- `site:arxiv.org` - Preprints (physics, CS, math, quantitative biology)
-- `site:biorxiv.org` - Biology preprints
-- `site:edu` - Academic institutions
-- `filetype:pdf` - Academic papers (often)
+**Note:** These are practitioner reports, not peer-reviewed. Cite as "industry practice" not "academic evidence." Validators accept them for benchmarking, not for methodology justification.
 
-**Example searches:**
-- `superconductivity high temperature mechanism site:arxiv.org`
-- `CRISPR off-target effects site:biorxiv.org`
+---
 
-#### 3. Search for Authors and Labs
+## Academic Literature
 
-**When you find a relevant paper:**
-- Search for the authors' other work
-- Find their lab website for unpublished work
-- Identify key research groups in the field
+### Key Journals for Banking DS
 
-#### 4. Use Google Scholar Approaches
+| Journal | Focus | Access |
+|---|---|---|
+| Journal of Credit Risk | Credit risk models, PD/LGD, stress testing | Subscription (Incisive Media) |
+| Journal of Banking & Finance | Empirical banking, credit markets, financial stability | Subscription (Elsevier); free via SSRN often |
+| Journal of Financial Economics | Corporate finance, credit theory | Subscription; papers on SSRN |
+| Review of Financial Studies | Asset pricing, credit risk | Subscription |
+| Expert Systems with Applications | Applied ML in finance, fraud detection | Subscription (Elsevier) |
+| Decision Support Systems | ML models in banking decisions | Subscription (Elsevier) |
 
-**Strategies:**
-- Use "Cited by" to find newer related work
-- Use "Related articles" to expand search
-- Set date ranges to focus on recent work
-- Use author: operator to find specific researchers
+**For ML/AI in banking specifically:**
+- KDD, NeurIPS, ICML proceedings — methodological papers on tree models, neural nets, SHAP
+- AAAI FinSI workshop — AI in financial services
+- ACM FAccT — algorithmic fairness (relevant for fair lending)
 
-#### 5. Combine General and Specific Terms
+### How to Access Without Subscription
 
-**Structure:**
-- Specific phenomenon + general concept
-- "tomato plant growth" + "bacterial promotion"
-- "cognitive decline" + "gut microbiome"
+1. **SSRN pre-print:** Search author + paper title on ssrn.com
+2. **Google Scholar:** Often links to free PDF versions hosted by authors or institutions
+3. **Unpaywall browser extension:** Automatically finds legal free versions
+4. **ResearchGate:** Authors often post their papers; message author directly if not available
 
-**Boolean logic:**
-- Use quotes for exact phrases: `"spike protein mutation"`
-- Use OR for alternatives: `(transmissibility OR transmission rate)`
-- Combine: `"spike protein" AND (transmissibility OR virulence) AND mutation`
+---
 
-## Cross-Database Search Strategies
+## Search Strategies by Investigation Type
 
-### Comprehensive Literature Search Workflow
+### Investigating Model Performance Degradation
 
-1. **Start with reviews (PubMed or Web Search):**
-   - Identify key concepts and terminology
-   - Note influential papers and researchers
-   - Understand current state of field
+**Internal search (do first):**
+- PSI report by feature → identify drifting features
+- Vintage KS chart → identify when degradation started
+- Credit strategy papers from degradation period → identify policy changes
 
-2. **Focused primary research (PubMed):**
-   - Search for specific mechanisms
-   - Find experimental evidence
-   - Identify methodologies
+**External search (if mechanism is unclear after internal):**
+- SSRN: `credit score drift population shift` → methods for drift detection
+- BIS working papers: `credit cycle application scorecard` → cyclical PD behavior
+- Journal of Credit Risk: `model stability through the cycle`
 
-3. **Broaden with web search:**
-   - Find related work in other fields
-   - Locate recent preprints
-   - Identify analogous systems
+### Investigating Fraud Model Improvement
 
-4. **Citation mining:**
-   - Follow references from key papers
-   - Use "cited by" to find recent work
-   - Track influential studies
+**Internal search:**
+- Current model SHAP values → what features are driving scores
+- False positive/negative analysis by fraud type (card fraud vs. account takeover vs. synthetic identity)
+- Transaction pattern analysis in confirmed fraud cases vs. FP cases
 
-5. **Iterative refinement:**
-   - Add new terms discovered in papers
-   - Narrow if too many results
-   - Broaden if too few relevant results
+**External search:**
+- SSRN: `card fraud detection ensemble` or `account takeover detection graph neural network`
+- KDD / NeurIPS: applied fraud detection papers
+- FICO World conference papers (available online): industry fraud methodology
 
-## Topic-Specific Search Strategies
+### Investigating Credit Limit / Collections Policy
 
-### Mechanisms and Pathways
+**Internal search:**
+- A/B test logs from prior experiments
+- Vintage performance by credit limit band
+- Collections cure rate by contact strategy
 
-**Goal:** Understand how something works
+**External search:**
+- SSRN: `credit limit effects default probability` — academic evidence on limit-default relationship
+- BIS: `revolving credit behavioral scoring` — behavioral data in credit decisions
+- Journal of Banking & Finance: `collections strategy field experiment`
 
-**Search components:**
-- Phenomenon + "mechanism"
-- Phenomenon + "pathway"
-- Phenomenon + specific molecules/pathways suspected
+### Investigating AML / Transaction Monitoring
 
-**Examples:**
-- `diabetic wound healing mechanism inflammation`
-- `autophagy pathway cancer`
+**Internal search:**
+- SAR (Suspicious Activity Report) patterns in confirmed cases
+- Alert rate trends by rule and customer segment
+- False positive analysis by alert type
 
-### Associations and Correlations
+**External search:**
+- FATF (fatf-gafi.org): guidance papers on risk-based AML approach
+- Wolfsberg Group principles (wolfsberg-principles.com): correspondent banking, transaction monitoring
+- SSRN: `anti-money laundering machine learning` — applied ML for AML
 
-**Goal:** Find what factors are related
+---
 
-**Search components:**
-- Variable A + Variable B + "association"
-- Variable A + Variable B + "correlation"
-- Variable A + "predicts" + Variable B
+## Citation Standards for Banking Reports
 
-**Examples:**
-- `vitamin D cardiovascular disease association`
-- `gut microbiome diversity predicts cognitive function`
+### In Model Validation Documents (formal reports)
 
-### Interventions and Treatments
+- Always cite full document: Author, Year, Title, Source, Section number if applicable
+- For regulatory documents: cite circular number and article number
+- For internal documents: cite document name, version number, date, owner department
+- Format: `(BCBS d239, 2013, Principle 2)` or `(NHNN Circular 41/2016, Article 7)`
 
-**Goal:** Evidence for what works
+### In Investigation Notebooks (Databricks %md cells)
 
-**Search components:**
-- Intervention + condition + "efficacy"
-- Intervention + condition + "randomized controlled trial"
-- Intervention + condition + "treatment outcome"
+Lighter format is acceptable:
+- External: `(BIS WP 735, Fuster et al. 2022)` 
+- Internal: `(Model Monitoring Report Q3 2024)` or `(Mortgage Scorecard v3.1 Validation Report, 2023)`
+- When citing industry benchmarks: `(Moody's Annual Default Study 2024, Global speculative grade)`
 
-**Examples:**
-- `probiotic intervention depression randomized controlled trial`
-- `exercise intervention cognitive decline efficacy`
+### Citation volume targets
 
-### Methods and Techniques
+| Document type | Minimum citations |
+|---|---|
+| Sprint investigation notebook | 0–3 (internal evidence dominant; external only if needed for methodology) |
+| Formal model validation report | 10–20 (methodology citations, regulatory references, benchmark sources) |
+| Research / methodology paper | 20–40 (full academic grounding) |
 
-**Goal:** How to test hypothesis
+---
 
-**Search components:**
-- Method name + application area
-- "How to measure" + phenomenon
-- Technique + validation
+## Time Allocation for Literature Search
 
-**Examples:**
-- `CRISPR screen cancer drug resistance`
-- `measure protein-protein interaction methods`
+| Investigation type | Internal search | External search | Total |
+|---|---|---|---|
+| Production incident (urgent) | 30–60 min | 0–15 min | < 90 min |
+| Sprint feature investigation | 1–2 hours | 30–60 min | 2–3 hours |
+| Formal model validation (methodology section) | 2–3 hours | 2–4 hours | 4–7 hours |
+| Research initiative | 3–5 hours | 5–10 hours | Full day+ |
 
-### Analogous Systems
+**Stop external search when:** You have found 2–3 sources supporting the mechanism and 1 source discussing potential pitfalls. More search beyond that has diminishing returns for sprint-level work.
 
-**Goal:** Find insights from related phenomena
+---
 
-**Search components:**
-- Mechanism + different system
-- Similar phenomenon + different organism/condition
+## Common Pitfalls
 
-**Examples:**
-- If studying plant-microbe symbiosis: search `nitrogen fixation rhizobia legumes`
-- If studying drug resistance: search `antibiotic resistance evolution mechanisms`
+### Skipping Internal Evidence
+Starting with academic papers before checking the PSI report wastes time. The answer is almost always in the internal data.
 
-## Evaluating Paper Impact and Quality
+### Citing Practitioner Reports as Methodology Justification
+Oliver Wyman and McKinsey reports can establish benchmarks but cannot justify a methodology choice. For methodology, use academic papers or Basel/NHNN guidance.
 
-### Citation Count Significance
+### Using Out-of-Date Regulatory References
+NHNN circulars are updated regularly. Always check the current version on vbpl.vn. Citing a superseded circular in a regulatory submission is a compliance risk.
 
-Citation counts indicate influence and importance in the field. Interpret citations relative to paper age and field norms:
+### Over-Citing
+A 2-page investigation notebook does not need 15 citations. Cite only what you actually used. Padding citations is noticed by validators and undermines credibility.
 
-| Paper Age | Citations | Interpretation |
-|-----------|-----------|----------------|
-| 0-3 years | 20+ | Noteworthy - gaining traction |
-| 0-3 years | 100+ | Highly Influential - significant impact already |
-| 3-7 years | 100+ | Significant - established contribution |
-| 3-7 years | 500+ | Landmark - major contribution to field |
-| 7+ years | 500+ | Seminal - widely recognized important work |
-| 7+ years | 1000+ | Foundational - field-defining paper |
-
-**Field-specific considerations:**
-- Biomedical/clinical: Higher citation norms (NEJM papers often 1000+)
-- Computer Science: Conference citations matter more than journals
-- Mathematics/Physics: Lower citation norms, longer citation half-lives
-- Social Sciences: Moderate citation norms, high book citation rates
-
-### Journal Impact Factor Guidance
-
-**Tier 1 - Premier Venues (Always Prefer):**
-- **General Science:** Nature (IF ~65), Science (IF ~55), Cell (IF ~65), PNAS (IF ~12)
-- **Medicine:** NEJM (IF ~175), Lancet (IF ~170), JAMA (IF ~120), BMJ (IF ~93)
-- **Field Flagships:** Nature Medicine, Nature Biotechnology, Nature Methods, Nature Genetics
-
-**Tier 2 - High-Impact Specialized (Strong Preference):**
-- Impact Factor >10
-- Examples: JAMA Internal Medicine, Annals of Internal Medicine, Circulation, Blood
-- Top ML/AI conferences: NeurIPS, ICML, ICLR (equivalent to IF 15-25)
-
-**Tier 3 - Respected Specialized (Include When Relevant):**
-- Impact Factor 5-10
-- Established society journals
-- Well-indexed specialty journals
-
-**Tier 4 - Other Peer-Reviewed (Use Sparingly):**
-- Impact Factor <5
-- Only cite if directly relevant AND no better source exists
-
-### Author Track Record Evaluation
-
-Prefer papers from established researchers:
-
-**Strong Author Indicators:**
-- **High h-index:** >40 in established fields, >20 for early-career stars
-- **Multiple Tier-1 publications:** Track record in Nature/Science/Cell family
-- **Institutional affiliation:** Leading research universities and institutes
-- **Recognition:** Awards, fellowships, editorial positions
-- **First/last authorship:** On multiple highly-cited papers
-
-**How to Check Author Reputation:**
-1. Google Scholar profile: Check h-index, i10-index, total citations
-2. PubMed: Search author name, review publication venues
-3. Institutional page: Check position, awards, grants
-4. ORCID profile: Full publication history
-
-### Conference Ranking Awareness (Computer Science/AI)
-
-For ML/AI and computer science topics, conference rankings matter:
-
-**A* (Flagship) - Equivalent to Nature/Science:**
-- NeurIPS (Neural Information Processing Systems)
-- ICML (International Conference on Machine Learning)
-- ICLR (International Conference on Learning Representations)
-- CVPR (Computer Vision and Pattern Recognition)
-- ACL (Association for Computational Linguistics)
-
-**A (Excellent) - Equivalent to Tier-2 Journals:**
-- AAAI, IJCAI (AI general)
-- EMNLP, NAACL (NLP)
-- ECCV, ICCV (Computer Vision)
-- SIGKDD, WWW (Data Mining)
-
-**B (Good) - Equivalent to Tier-3 Journals:**
-- COLING, CoNLL (NLP)
-- WACV, BMVC (Computer Vision)
-- Most ACM/IEEE specialized conferences
-
-## Evaluating Source Quality
-
-### Primary Research Quality Indicators
-
-**Strong quality signals:**
-- Published in Tier-1 or Tier-2 venues
-- High citation count for paper age
-- Written by established researchers with strong track records
-- Large sample sizes (for statistical power)
-- Pre-registered studies (reduces bias)
-- Appropriate controls and methods
-- Consistent with other findings
-- Transparent data and methods
-
-**Red flags:**
-- Published in predatory or low-impact journals
-- Written by authors with no established track record
-- No peer review (use cautiously)
-- Conflicts of interest not disclosed
-- Methods not clearly described
-- Extraordinary claims without extraordinary evidence
-- Contradicts large body of evidence without explanation
-
-### Review Quality Indicators
-
-**Systematic reviews (highest quality):**
-- Published in Tier-1/2 venues (Cochrane, Nature Reviews, Annual Reviews)
-- Pre-defined search strategy
-- Explicit inclusion/exclusion criteria
-- Quality assessment of included studies
-- Quantitative synthesis (meta-analysis)
-
-**Narrative reviews (variable quality):**
-- Expert synthesis of field
-- May have selection bias
-- Useful for context and framing
-- Check author expertise and citations
-- Prefer reviews in Tier-1/2 journals by field leaders
-
-## Time Management in Literature Search
-
-### Allocate Search Time Appropriately
-
-**For straightforward hypotheses (30-60 min):**
-- 1-2 broad review articles
-- 3-5 targeted primary research papers
-- Quick web search for recent developments
-
-**For complex hypotheses (1-3 hours):**
-- Multiple reviews for different aspects
-- 10-15 primary research papers
-- Systematic search across databases
-- Citation mining from key papers
-
-**For contentious topics (3+ hours):**
-- Systematic review approach
-- Identify competing perspectives
-- Track historical development
-- Cross-reference findings
-
-### Diminishing Returns
-
-**Signs you've searched enough:**
-- Finding the same papers repeatedly
-- New searches yield mostly irrelevant papers
-- Sufficient evidence to support/contextualize hypotheses
-- Multiple independent lines of evidence converge
-
-**When to search more:**
-- Major gaps in understanding remain
-- Conflicting evidence needs resolution
-- Hypothesis seems inconsistent with literature
-- Need specific methodological information
-
-## Documenting Search Results
-
-### Information to Capture
-
-**For each relevant paper:**
-- Full citation (authors, year, journal, title)
-- Key findings relevant to hypothesis
-- Study design and methods
-- Limitations noted by authors
-- How it relates to hypothesis
-
-### Organizing Findings
-
-**Group by:**
-- Supporting evidence for hypothesis A, B, C
-- Methodological approaches
-- Conflicting findings requiring explanation
-- Gaps in current knowledge
-
-**Synthesis notes:**
-- What is well-established?
-- What is controversial or uncertain?
-- What analogies exist in other systems?
-- What methods are commonly used?
-
-### Citation Organization for Hypothesis Reports
-
-**For report structure:** Organize citations for two audiences:
-
-**Main Text (15-20 key citations):**
-- Most influential papers (highly cited, seminal studies)
-- Recent definitive evidence (last 2-3 years)
-- Key papers directly supporting each hypothesis (3-5 per hypothesis)
-- Major reviews synthesizing the field
-
-**Appendix A: Comprehensive Literature Review (40-60+ citations):**
-- **Historical context:** Foundational papers establishing field
-- **Current understanding:** Recent reviews and meta-analyses
-- **Hypothesis-specific evidence:** 8-15 papers per hypothesis covering:
-  - Direct supporting evidence
-  - Analogous mechanisms in related systems
-  - Methodological precedents
-  - Theoretical framework papers
-- **Conflicting findings:** Papers representing different viewpoints
-- **Knowledge gaps:** Papers identifying limitations or unanswered questions
-
-**Target citation density:** Aim for 50+ total references to provide comprehensive support for all claims and demonstrate thorough literature grounding.
-
-**Grouping strategy for Appendix A:**
-1. Background and context papers
-2. Current understanding and established mechanisms
-3. Evidence supporting each hypothesis (separate subsections)
-4. Contradictory or alternative findings
-5. Methodological and technical papers
-
-## Practical Search Workflow
-
-### Step-by-Step Process
-
-1. **Define search goals (5 min):**
-   - What aspects of phenomenon need evidence?
-   - What would support or refute hypotheses?
-
-2. **Broad review search (15-20 min):**
-   - Find 1-3 review articles
-   - Skim abstracts for relevance
-   - Note key concepts and terminology
-
-3. **Targeted primary research (30-45 min):**
-   - Search for specific mechanisms/evidence
-   - Read abstracts, scan figures and conclusions
-   - Follow most promising references
-
-4. **Cross-domain search (15-30 min):**
-   - Look for analogies in other systems
-   - Find recent preprints
-   - Identify emerging trends
-
-5. **Citation mining (15-30 min):**
-   - Follow references from key papers
-   - Use "cited by" for recent work
-   - Identify seminal studies
-
-6. **Synthesize findings (20-30 min):**
-   - Summarize evidence for each hypothesis
-   - Note patterns and contradictions
-   - Identify knowledge gaps
-
-### Iteration and Refinement
-
-**When initial search is insufficient:**
-- Broaden terms if too few results
-- Add specific mechanisms/pathways if too many results
-- Try alternative terminology
-- Search for related phenomena
-- Consult review articles for better search terms
-
-**Red flags requiring more search:**
-- Only finding weak or indirect evidence
-- All evidence comes from single lab or source
-- Evidence seems inconsistent with basic principles
-- Major aspects of phenomenon lack any relevant literature
-
-## Common Search Pitfalls
-
-### Pitfalls to Avoid
-
-1. **Confirmation bias:** Only seeking evidence supporting preferred hypothesis
-   - **Solution:** Actively search for contradicting evidence
-
-2. **Recency bias:** Only considering recent work, missing foundational studies
-   - **Solution:** Include historical searches, track development of ideas
-
-3. **Too narrow:** Missing relevant work due to restrictive terms
-   - **Solution:** Use OR operators, try alternative terminology
-
-4. **Too broad:** Overwhelmed by irrelevant results
-   - **Solution:** Add specific terms, use filters, combine concepts with AND
-
-5. **Single database:** Missing important work in other fields
-   - **Solution:** Search both PubMed and general web, try domain-specific databases
-
-6. **Stopping too soon:** Insufficient evidence to ground hypotheses
-   - **Solution:** Set minimum targets (e.g., 2 reviews + 5 primary papers per hypothesis aspect)
-
-7. **Cherry-picking:** Citing only supportive papers
-   - **Solution:** Represent full spectrum of evidence, acknowledge contradictions
-
-## Special Cases
-
-### Emerging Topics (Limited Literature)
-
-**When little published work exists:**
-- Search for analogous phenomena in related systems
-- Look for preprints (arXiv, bioRxiv)
-- Find conference abstracts and posters
-- Identify theoretical frameworks that may apply
-- Note the limited evidence in hypothesis generation
-
-### Controversial Topics (Conflicting Literature)
-
-**When evidence is contradictory:**
-- Systematically document both sides
-- Look for methodological differences explaining conflict
-- Check for temporal trends (has understanding shifted?)
-- Identify what would resolve the controversy
-- Generate hypotheses explaining the discrepancy
-
-### Interdisciplinary Topics
-
-**When spanning multiple fields:**
-- Search each field's primary databases
-- Use field-specific terminology for each domain
-- Look for bridging papers that cite across fields
-- Consider consulting domain experts
-- Translate concepts between disciplines carefully
-
-## Integration with Hypothesis Generation
-
-### Using Literature to Inform Hypotheses
-
-**Direct applications:**
-- Established mechanisms to apply to new contexts
-- Known pathways relevant to phenomenon
-- Similar phenomena in related systems
-- Validated methods for testing
-
-**Indirect applications:**
-- Analogies from different systems
-- Theoretical frameworks to apply
-- Gaps suggesting novel mechanisms
-- Contradictions requiring resolution
-
-### Balancing Literature Dependence
-
-**Too literature-dependent:**
-- Hypotheses merely restate known mechanisms
-- No novel insights or predictions
-- "Hypotheses" are actually established facts
-
-**Too literature-independent:**
-- Hypotheses ignore relevant evidence
-- Propose implausible mechanisms
-- Reinvent already-tested ideas
-- Inconsistent with established principles
-
-**Optimal balance:**
-- Grounded in existing evidence
-- Extend understanding in novel ways
-- Acknowledge both supporting and challenging evidence
-- Generate testable predictions beyond current knowledge
+### Misinterpreting US/European Research for Vietnamese Market
+US/European default rates, LGD estimates, and behavioral patterns may not apply to Vietnamese borrowers. Always note when adapting foreign research and validate assumptions against internal data.

@@ -1,228 +1,288 @@
 ---
 name: hypothesis-generation
-description: Structured hypothesis formulation from observations. Use when you have experimental observations or data and need to formulate testable hypotheses with predictions, propose mechanisms, and design experiments to test them. Follows scientific method framework. For open-ended ideation use scientific-brainstorming; for automated LLM-driven hypothesis testing on datasets use hypogenic.
+description: Structured hypothesis formulation for banking data science. Use when you have experimental observations, model results, or business data and need to formulate testable hypotheses with predictions, propose mechanisms, and design experiments. Covers credit risk, fraud detection, customer analytics, AML, and regulatory model validation contexts. Follows scientific method adapted for banking DS constraints (internal data, regulatory oversight, champion-challenger testing).
 allowed-tools: Read Write Edit Bash
 license: MIT license
 metadata:
-    skill-author: K-Dense Inc.
-    adapted-for: Databricks (no LaTeX output)
+    skill-author: ds-skills
+    domain: banking
+    adapted-for: Databricks (no LaTeX output; %md cells for narrative, display(fig) for figures)
 ---
 
-# Scientific Hypothesis Generation
+# Hypothesis Generation — Banking Domain
 
 ## Overview
 
-Hypothesis generation is a systematic process for developing testable explanations. Formulate evidence-based hypotheses from observations, design experiments, explore competing explanations, and develop predictions. Apply this skill for scientific inquiry across domains.
+A hypothesis is a specific, testable, falsifiable statement of a mechanism. In banking DS, hypotheses arise from:
+- Model performance gaps (why is KS dropping in Q3?)
+- Feature investigation (would adding bureau data improve PD model discrimination?)
+- Business anomalies (why did early-delinquency rate spike in the Feb vintage?)
+- Regulatory findings (validator says model is unstable — what is the root cause?)
+- Product decisions (would a lower credit limit reduce first-year default without hurting approval rate?)
+
+A hypothesis is not a question. It is a directional claim with a mechanism: **"If [intervention/change X] then [metric Y] changes by [direction/magnitude Z] in [population/segment W] because [mechanism M]."**
 
 ## When to Use This Skill
 
-This skill should be used when:
-- Developing hypotheses from observations or preliminary data
-- Designing experiments to test scientific questions
-- Exploring competing explanations for phenomena
-- Formulating testable predictions for research
-- Conducting literature-based hypothesis generation
-- Planning mechanistic studies across scientific domains
+- Investigating a model performance regression or unexpected metric
+- Generating candidates for a feature engineering sprint
+- Designing a champion-challenger or A/B test before committing to production
+- Diagnosing model stability failure (PSI spike, KS degradation)
+- Preparing a hypothesis-driven model validation section for Risk Committee
+- Prioritizing which segments or products to investigate before an audit
 
 ---
 
 ## Workflow
 
-Follow this systematic process to generate robust scientific hypotheses:
-
 ### 1. Understand the Phenomenon
 
-Start by clarifying the observation, question, or phenomenon that requires explanation:
+Before writing any hypothesis, anchor the work in a concrete observation.
 
-- Identify the core observation or pattern that needs explanation
-- Define the scope and boundaries of the phenomenon
-- Note any constraints or specific contexts
-- Clarify what is already known vs. what is uncertain
-- Identify the relevant scientific domain(s)
+**Define the observation precisely:**
+- What metric changed, and by how much? (KS dropped from 0.42 to 0.35 on Oct vintage)
+- What population is affected? (new-to-bank applicants, SME segment, card revolvers)
+- What time window covers the observation? (origination Jan–Jun 2024, performance window 12 months)
+- What is already known vs. uncertain?
 
-### 2. Conduct Comprehensive Literature Search
+**Scope boundaries for banking:**
+- Is the phenomenon in origination (application scorecard) or behavioral (collection, account management)?
+- Is it systemic (all products) or product-specific?
+- Is it a data issue, feature issue, or genuine population shift?
 
-Search existing scientific literature to ground hypotheses in current evidence. Use both PubMed (for biomedical topics) and general web search (for broader scientific domains):
+**Before proceeding, confirm:**
+```
+[ ] Metric name, value before and after change
+[ ] Population definition (product, segment, origination window)
+[ ] Performance window (how long after origination is outcome measured?)
+[ ] Data as-of date (what vintage is the test set drawn from?)
+[ ] Available data sources for investigation
+```
 
-**For biomedical topics:**
-- Use WebFetch with PubMed URLs to access relevant literature
-- Search for recent reviews, meta-analyses, and primary research
-- Look for similar phenomena, related mechanisms, or analogous systems
+---
 
-**For all scientific domains:**
-- Use WebSearch to find recent papers, preprints, and reviews
-- Search for established theories, mechanisms, or frameworks
-- Identify gaps in current understanding
+### 2. Gather Internal Evidence
 
-**If no public literature applies (proprietary data, internal product metrics):**
-Skip external search. Use internal evidence as the evidence base:
-- EDA summaries and exploratory notebooks
-- Prior experiment logs and A/B test results
-- Domain expert interviews and historical baselines
-Proceed directly to Step 3 with these as inputs. "Literature-based" steps are optional, not required.
+For banking DS, the primary evidence base is internal. External literature supplements it, not the reverse.
 
-**Search strategy (when literature exists):**
-- Begin with broad searches to understand the landscape
-- Narrow to specific mechanisms, pathways, or theories
-- Look for contradictory findings or unresolved debates
-- Consult `references/literature_search_strategies.md` for detailed search techniques
+**Internal sources — check in this order:**
+
+| Source | What to look for |
+|---|---|
+| Model monitoring reports (PSI, CSI) | Score distribution shift, population drift |
+| Vintage performance reports | Divergence between recent and historical vintages |
+| Feature importance / SHAP logs | Which features are driving score changes |
+| Data quality reports | Missing rates, imputation rate changes, source system changes |
+| Origination strategy changes | Cutoff moves, channel mix shifts, bureau product changes |
+| Model inventory / prior validation reports | Known weaknesses, conditions from last validation |
+| Economic/macro data | GDP, unemployment, rate environment (for systematic risk) |
+
+**External sources for banking:**
+
+| Source | Use case |
+|---|---|
+| BIS working papers (bis.org/research) | Credit cycle, PD estimation methodology, model risk |
+| Basel Committee publications (bcbs.bis.org) | IFRS 9 ECL, IRB, stress testing methodology |
+| NHNN/SBV circulars (sbv.gov.vn) | Vietnamese regulatory requirements |
+| SSRN — Finance / Econometrics networks | Academic preprints on credit risk, fraud, ML in banking |
+| Journal of Credit Risk, Journal of Banking & Finance | Peer-reviewed empirical methods |
+| Moody's Analytics, Oliver Wyman, McKinsey Global Banking | Industry methodology reports |
+
+**If no external literature is needed** (internal product, proprietary data, model behavior): skip external search. Use internal evidence as the sole evidence base and document this explicitly.
+
+Consult `references/literature_search_strategies.md` for detailed banking search techniques.
+
+---
 
 ### 3. Synthesize Existing Evidence
 
-Analyze and integrate findings from literature search:
+From the evidence gathered, produce a structured summary:
 
-- Summarize current understanding of the phenomenon
-- Identify established mechanisms or theories that may apply
-- Note conflicting evidence or alternative viewpoints
-- Recognize gaps, limitations, or unanswered questions
-- Identify analogies from related systems or domains
+- What is the most likely proximate cause? (e.g., new bureau field introduced Jan 2024, missing for 40% of applicants)
+- What mechanisms could produce the observed pattern?
+- What does the data NOT explain? (residual unexplained variance, segments behaving differently)
+- What analogies exist from prior incidents? (check model inventory for similar findings in other products)
 
-### 3b. Prioritize Before Generating (When Resources Are Limited)
+---
 
-If you have limited time or experiment budget, rank hypotheses by:
-1. **Lift potential** — if true, how much does it move the primary metric?
-2. **Test cost** — how much time/data does validation require?
-3. **Existing signal** — can existing data partially eliminate this hypothesis before running an experiment?
+### 3b. Prioritize Before Generating
 
-Hypotheses that can be eliminated with existing data should be ruled out first. Do not design a full experiment for a hypothesis that historical data already answers.
+If sprint capacity is limited (typical: 1-2 week investigation sprint), rank hypotheses before generating them using:
 
-**DS-native hypothesis template:**
-> "If [feature/intervention X] then [metric Y] changes by [direction/magnitude Z] in [population/segment W] because [mechanism]."
+**Prioritization matrix:**
 
-Example: "If we add recency score as a feature, then AP on the holdout set increases by ≥ 0.03 in the high-value segment because recency captures intent signal currently missing from the model."
+| Criterion | Question | How to score |
+|---|---|---|
+| **Lift potential** | If true, how much does it move the primary metric? | Estimate expected KS/AP improvement or default rate impact |
+| **Test cost** | How much data/compute/time does validation require? | Days to test: <1 day = low cost, >1 week = high cost |
+| **Existing signal** | Can existing data already partially confirm or eliminate this? | Check if monitoring reports already answer this |
+| **Reversibility** | If we act on this hypothesis and it's wrong, how bad is the error? | High for production model changes, low for offline experiments |
+
+**Rule:** Hypotheses that existing data can already eliminate should be ruled out first — do not run a full experiment on a question that last quarter's PSI report already answers.
+
+**Banking hypothesis template:**
+> "If [feature/intervention/policy X] then [metric Y] changes by [direction + magnitude] in [product/segment/population W] because [mechanism M]."
+
+**Examples of well-formed banking hypotheses:**
+
+- "If we add transaction velocity (# of transactions in last 7 days) to the fraud detection model, then precision@100 increases by ≥5pp at the current operating threshold, because velocity is a leading indicator of account takeover not currently captured in the feature set."
+- "If we re-score revolving credit applicants using 6-month behavioral window instead of 12-month, then KS improves by ≥3 points on the 2023 origination cohort, because recent behavioral signals are more predictive of near-term default for revolving products."
+- "If the PSI spike on the mortgage scorecard is explained by a change in LTV distribution (new high-LTV product launched Q2), then the PSI drops below 0.10 when we segment the analysis by LTV band."
+- "If we remove the bureau field `CB_INQUIRY_6M` from the application scorecard, model performance on non-bureau applicants (new-to-credit) does not change, because this feature is missing for >60% of that segment and is imputed with the population mean."
 
 ---
 
 ### 4. Generate Competing Hypotheses
 
-Develop 3–5 distinct hypotheses for mechanistic studies; 1–2 for sprint/exploratory contexts (label scope explicitly). Each hypothesis should:
+Develop **2–4 competing hypotheses** for investigation sprints; **1–2** for urgent production incidents. More than 4 is a sign of insufficient scope definition — narrow the phenomenon first.
 
-- Provide a mechanistic explanation (not just description)
-- Be distinguishable from other hypotheses
-- Draw on evidence from the literature synthesis
-- Consider different levels of explanation (molecular, cellular, systemic, population, etc.)
+Each hypothesis must have:
+- A **mechanism** (not just "feature X is important" — explain why it should predict the outcome)
+- A **falsification condition** (what data outcome rejects it)
+- **Distinguishability** from the other hypotheses (different mechanism, different data source to test)
 
-**Strategies for generating hypotheses:**
-- Apply known mechanisms from analogous systems
-- Consider multiple causative pathways
-- Explore different scales of explanation
-- Question assumptions in existing explanations
-- Combine mechanisms in novel ways
+**Banking-specific hypothesis generation strategies:**
+
+**Population drift hypotheses:**
+- New origination channel changed applicant mix
+- Credit policy change shifted risk profile
+- Macro factor (rate rise, unemployment spike) changed default behavior
+
+**Feature/data quality hypotheses:**
+- Bureau field changed definition or coverage
+- Imputation logic change upstream affected derived features
+- New product launched creates population not well-represented in training data
+
+**Model architecture hypotheses:**
+- Score is well-ranked but miscalibrated (AUC good, calibration poor)
+- Model overfits to a specific vintage pattern not generalizing to recent data
+- A segment (e.g., young borrowers, SME) was under-represented in training
+
+**Business/strategy hypotheses:**
+- Credit limit changes altered behavioral patterns (self-fulfilling: lower limit → lower utilization → looks less risky)
+- Collections strategy change altered the observed default definition
+- Approval rate change at cutoff altered the observed population (selection bias)
+
+---
 
 ### 5. Evaluate Hypothesis Quality
 
-Assess each hypothesis against established quality criteria from `references/hypothesis_quality_criteria.md`:
+Apply criteria from `references/hypothesis_quality_criteria.md`.
 
-**Testability:** Can the hypothesis be empirically tested? *(DS: is there a holdout set or A/B experiment that could confirm/reject it?)*
-**Falsifiability:** What observations would disprove it? *(DS: define the metric threshold that rejects the hypothesis, e.g. "AP improvement < 0.02 on holdout")*
-**Parsimony:** Is it the simplest explanation that fits the evidence? *(DS: prefer fewer features / simpler mechanisms over complex multi-factor explanations)*
-**Explanatory Power:** How much of the phenomenon does it explain?
-**Scope:** What range of observations does it cover?
-**Consistency:** Does it align with established principles?
-**Novelty:** Does it offer new insights beyond existing explanations? *(Lower priority in business contexts — correctness and testability matter more than novelty)*
+**Banking-adapted quality criteria:**
 
-Explicitly note the strengths and weaknesses of each hypothesis.
+| Criterion | Banking DS interpretation | Red flag |
+|---|---|---|
+| **Testability** | Is there a holdout set, A/B experiment, or backtesting window to test this? | "We'd need to wait 12 months for outcomes" is a high-cost, not untestable, hypothesis |
+| **Falsifiability** | State the metric threshold that rejects the hypothesis ("AP improvement < 0.02 on holdout rejects H1") | "Performance may improve" is not falsifiable |
+| **Parsimony** | Prefer data quality / population shift explanations before model architecture explanations | Don't invoke model redesign before ruling out upstream data issues |
+| **Explanatory power** | Does this mechanism account for the full magnitude of the observed change? | Partial explanations are acceptable but must state what remains unexplained |
+| **Consistency** | Does it align with what credit cycle / behavioral data theory predicts? | Contradicting established credit risk principles requires strong evidence |
+| **Novelty** | Lower priority in banking — correctness and speed to test matter more than novelty | Don't chase novel explanations when mundane ones (data quality) haven't been eliminated |
 
-### 6. Design Experimental Tests
+---
 
-For each viable hypothesis, propose specific experiments or studies to test it. Consult `references/experimental_design_patterns.md` for common approaches:
+### 6. Design Tests
 
-**Experimental design elements:**
-- What would be measured or observed?
-- What comparisons or controls are needed?
-- What methods or techniques would be used?
-- What sample sizes or statistical approaches are appropriate?
-- What are potential confounds and how to address them?
+For each hypothesis, specify the test. Use patterns from `references/experimental_design_patterns.md`.
 
-**Consider multiple approaches:**
-- Data science experiments (A/B test, holdout group, simulation, champion-challenger)
-- Observational studies (cross-sectional, longitudinal, case-control)
-- Laboratory experiments (in vitro, in vivo) — for biomedical/scientific domains only
-- Natural experiments or quasi-experimental designs
+**Banking test design elements:**
+- What is the test dataset? (holdout, backtesting window, champion-challenger split)
+- What is the comparison? (model with / without feature; before / after policy change)
+- What is the primary metric? (KS, AP, PSI, precision@k, default rate at cutoff)
+- What is the sample size and statistical power?
+- What confounds need to be controlled? (vintage, macro environment, product mix)
+- What is the decision rule? (if metric threshold met, proceed to champion-challenger in production)
+
+---
 
 ### 7. Formulate Testable Predictions
 
-For each hypothesis, generate specific, quantitative predictions:
+For each hypothesis, write specific, quantitative predictions:
 
-- State what should be observed if the hypothesis is correct
-- Specify expected direction and magnitude of effects when possible
-- Identify conditions under which predictions should hold
-- Distinguish predictions between competing hypotheses
-- Note predictions that would falsify the hypothesis
+- Direction and magnitude of metric change
+- Population / segment where effect should be observed
+- Time window for evaluation
+- What outcome falsifies the hypothesis
 
-### 8. Present Structured Output (Databricks Notebook)
+**Distinguish between competing hypotheses with different predictions:**
 
-Write all output as Markdown in `%md` cells. Do NOT use `displayHTML()` or generate LaTeX or PDFs.
+If H1 (population drift) is true → PSI drops when segmented by channel; model performance stable within each channel.
+If H2 (feature data quality) is true → PSI stable across channels; performance degrades specifically on the affected feature quartile.
+If H3 (model overfitting to vintage) is true → both PSI and model performance degrade on recent vintages only; historical vintages remain stable.
 
-**Report structure:**
+---
 
-1. **Executive Summary** — brief overview of the phenomenon and top hypothesis
-2. **Competing Hypotheses** — one `%md` section per hypothesis (template below)
-3. **Testable Predictions** — table format
-4. **Critical Comparisons** — which experiments best distinguish hypotheses
-5. **References** — inline citations with author/year/title
+### 8. Output Format (Databricks Notebook)
 
-**Hypothesis block template (`%md` cell):**
+Write all output as Markdown in `%md` cells. Do NOT use `displayHTML()`.
+
+**Executive Summary (`%md` cell):**
 
 ```markdown
-### Hypothesis 1: [Title]
+## Hypothesis Investigation: [Phenomenon Title]
+
+**Observation:** KS dropped from 0.42 to 0.34 on Oct–Dec 2024 origination cohort (mortgage scorecard v3.1).
+**Primary hypothesis:** Population drift via new high-LTV product (H1).
+**Top recommendation:** Run PSI segmentation by LTV band before any model retraining.
+**Decision required by:** [date]
+```
+
+**Hypothesis block template (`%md` cell — one per hypothesis):**
+
+```markdown
+### H1: [Title]
 
 **Mechanism:** ...
 
-**Key Evidence:**
-- ...
-- ...
+**Key evidence:**
+- [Internal evidence source + finding]
+- [Supporting data point]
 
-**Core Assumptions:** ...
+**Falsification condition:** If [observable metric outcome], H1 is rejected.
 
-**Falsification condition:** If [observable outcome], this hypothesis is rejected.
+**Recommended test:** [test name, dataset, metric, decision threshold]
 ```
 
-**Predictions table template:**
+**Predictions table (`%md` cell):**
 
 ```markdown
 ### Testable Predictions
 
-| Hypothesis | If true, we expect | Falsified if |
-|---|---|---|
-| H1: [Title] | [direction + metric + magnitude] | [threshold not met] |
-| H2: [Title] | ... | ... |
+| Hypothesis | If true, we expect | Falsified if | Test dataset |
+|---|---|---|---|
+| H1: Population drift | PSI drops to <0.10 when segmented by LTV band | PSI remains ≥0.20 in all LTV bands | Oct–Dec 2024 origination |
+| H2: Bureau data issue | CB_INQUIRY_6M missing rate >40% in failing vintages | Missing rate stable at historical level | Data quality report, Dec 2024 |
 ```
 
-**Critical comparisons template:**
+**Critical comparisons (`%md` cell):**
 
 ```markdown
-### Critical Comparisons
+### Distinguishing Experiments
 
-| Experiment | Distinguishes | Expected outcome per hypothesis |
-|---|---|---|
-| [Experiment name] | H1 vs H2 | H1: ..., H2: ... |
+| Test | Distinguishes | H1 expects | H2 expects |
+|---|---|---|---|
+| PSI by LTV band | H1 vs H2 | PSI drops in high-LTV segment | PSI stable across LTV bands |
+| Bureau field audit | H1 vs H2 | Missing rate stable | Missing rate spiked in failing vintages |
 ```
 
-**Citation format:** Inline author-year: `(Smith et al., 2023)`. Full references in a final `%md` cell.
-
-**Citation targets:**
-- Main body: 5–10 key citations for DS/business contexts; 10–15 for scientific/mechanistic studies
-- Reference list: include all cited sources
+**Citation format:** Inline author-year: `(Smith et al., 2023)`. For internal reports: `(Model Monitoring Report, Q4 2024)`.
 
 ---
 
 ## Quality Standards
 
-Ensure all generated hypotheses meet these standards:
-
-- **Evidence-based:** Grounded in existing literature with citations
-- **Testable:** Include specific, measurable predictions
-- **Mechanistic:** Explain how/why, not just what
-- **Comprehensive:** Consider alternative explanations
-- **Rigorous:** Include experimental designs to test predictions
+- **Mechanism required:** "Feature X is important" is not a hypothesis. Explain why it predicts the outcome.
+- **Quantitative falsification:** Every hypothesis must state a metric threshold that rejects it.
+- **Parsimony first:** Rule out data quality and population shift before model architecture changes.
+- **Regulatory defensibility:** Hypotheses in formal validation documents must cite evidence. "We believe..." is not acceptable.
+- **No more than 4 hypotheses without narrowing scope:** More hypotheses = phenomenon is underdefined.
 
 ---
 
 ## Resources
 
 ### references/
-
-- `hypothesis_quality_criteria.md` — Framework for evaluating hypothesis quality (testability, falsifiability, parsimony, explanatory power, scope, consistency)
-- `experimental_design_patterns.md` — Common experimental approaches across domains (RCTs, observational studies, lab experiments, computational models)
-- `literature_search_strategies.md` — Effective search techniques for PubMed and general scientific sources
+- `hypothesis_quality_criteria.md` — Quality criteria adapted for banking DS (testability, falsifiability, parsimony) with banking examples
+- `experimental_design_patterns.md` — Banking experiment design patterns: champion-challenger, holdout, backtesting, A/B test, quasi-experimental
+- `literature_search_strategies.md` — How to find banking evidence: internal reports, BIS, NHNN, SSRN, industry research

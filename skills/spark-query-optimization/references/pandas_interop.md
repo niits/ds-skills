@@ -156,7 +156,7 @@ print("  F1@0.50 :", round(f1_score(y_test, xgb_pred), 4))
 
 # 4) Build RuleFit using the pretrained XGBoost as tree generator
 rulefit = RuleFitClassifier(
-    n_estimators=200,  # number of trees RuleFit uses to generate candidate rules
+    n_estimators=200,  # max trees consumed from pretrained XGBoost for candidate-rule extraction
     tree_generator=xgb,
     random_state=42,
 )
@@ -173,7 +173,8 @@ print("  F1@0.50 :", round(f1_score(y_test, rf_pred), 4))
 
 # 5) Inspect learned rules
 rules = rulefit.get_rules()
-# support = fraction of training rows satisfying the rule; sort by support to prioritize broadly applicable patterns
+# support = fraction of training rows satisfying the rule; sort by support for broad-coverage rules
+# (alternative: sort by abs(coef) when you want highest effect-size rules first)
 rules = rules.query("coef != 0").sort_values("support", ascending=False)
 for i, rule in enumerate(rules.head(10).itertuples(), 1):
     print(f"{i:02d}. coef={rule.coef:.4f}  rule={rule.rule}")

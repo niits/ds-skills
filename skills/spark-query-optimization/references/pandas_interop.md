@@ -162,7 +162,6 @@ rulefit = RuleFitClassifier(
 )
 # RuleFit expects numpy arrays; pass feature_names in the same column order
 feature_names = X_train.columns.tolist()
-assert len(feature_names) == X_train.shape[1]
 rulefit.fit(X_train.values, y_train.values, feature_names=feature_names)
 
 rf_prob = rulefit.predict_proba(X_test.values)[:, 1]
@@ -178,8 +177,8 @@ rules = rulefit.get_rules()
 # support = fraction of training rows satisfying the rule; sort by support for broad-coverage rules
 # (alternative: sort by abs(coef) when you want highest effect-size rules first)
 rules = rules.query("coef != 0").sort_values("support", ascending=False)
-for i, rule in enumerate(rules.head(10).itertuples(), 1):
-    print(f"{i:02d}. coef={rule.coef:.4f}  rule={rule.rule}")
+for i, (_, rule) in enumerate(rules.head(10).iterrows(), 1):
+    print(f"{i:02d}. coef={rule['coef']:.4f}  rule={rule['rule']}")
 ```
 
 **Notes**

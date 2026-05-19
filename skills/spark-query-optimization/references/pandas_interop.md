@@ -134,7 +134,7 @@ X = pd.get_dummies(
 y = df["y"]
 
 # IMPORTANT: keep column order exactly as during XGBoost training
-# During original training, save once:
+# In your separate XGBoost training job, save once:
 # joblib.dump(X_train.columns.tolist(), "/dbfs/FileStore/xgb_feature_columns.pkl")
 feature_cols = joblib.load("/dbfs/FileStore/xgb_feature_columns.pkl")
 X = X.reindex(columns=feature_cols, fill_value=0)
@@ -156,7 +156,7 @@ print("  F1@0.50 :", round(f1_score(y_test, xgb_pred), 4))
 
 # 4) Build RuleFit using the pretrained XGBoost as tree generator
 rulefit = RuleFitClassifier(
-    n_estimators=200,
+    n_estimators=200,  # tune this for rule-set size vs runtime
     tree_generator=xgb,
     random_state=42,
 )

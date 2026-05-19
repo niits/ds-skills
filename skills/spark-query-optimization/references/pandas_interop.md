@@ -122,7 +122,7 @@ from imodels import RuleFitClassifier
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import average_precision_score, roc_auc_score, f1_score
 
-# 1) Input data for interpretation dataset (same feature logic as training)
+# 1) Load interpretation dataset (same feature logic as training)
 df = pd.read_parquet("/dbfs/FileStore/dev_scoring_input.parquet")
 
 # 2) One-hot encode categorical features

@@ -134,6 +134,8 @@ X = pd.get_dummies(
 y = df["y"]
 
 # IMPORTANT: keep column order exactly as during XGBoost training
+# During original training, save once:
+# joblib.dump(X_train.columns.tolist(), "/dbfs/FileStore/xgb_feature_columns.pkl")
 feature_cols = joblib.load("/dbfs/FileStore/xgb_feature_columns.pkl")
 X = X.reindex(columns=feature_cols, fill_value=0)
 
@@ -158,6 +160,7 @@ rulefit = RuleFitClassifier(
     tree_generator=xgb,
     random_state=42,
 )
+# RuleFit expects numpy arrays; provide explicit feature_names for readable rules
 rulefit.fit(X_train.values, y_train.values, feature_names=X_train.columns.tolist())
 
 rf_prob = rulefit.predict_proba(X_test.values)[:, 1]

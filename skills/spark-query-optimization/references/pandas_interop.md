@@ -111,9 +111,9 @@ result = df.groupBy("customer_id").apply(scale_per_customer)
 
 ---
 
-## Build imodels Rules from a Pretrained XGBoost (Binary + One-Hot)  
+## Build imodels Rules from a Pretrained Random Forest (Binary + One-Hot)  
 
-Use this pattern when your XGBoost model is already trained and you want an interpretable rule layer using imodels.
+Use this pattern when your tree ensemble model is already trained and you want an interpretable rule layer using imodels.
 
 ```python
 import pandas as pd
@@ -133,31 +133,31 @@ X = pd.get_dummies(
 )
 y = df["y"]
 
-# IMPORTANT: keep column order exactly as during XGBoost training
-# In your separate XGBoost training job, save once:
-# joblib.dump(X_train.columns.tolist(), "/dbfs/FileStore/xgb_feature_columns.pkl")
-feature_cols = joblib.load("/dbfs/FileStore/xgb_feature_columns.pkl")
+# IMPORTANT: keep column order exactly as during tree-model training
+# In your separate training job, save once:
+# joblib.dump(X_train.columns.tolist(), "/dbfs/FileStore/rf_feature_columns.pkl")
+feature_cols = joblib.load("/dbfs/FileStore/rf_feature_columns.pkl")
 X = X.reindex(columns=feature_cols, fill_value=0)
 
 X_train, X_test, y_train, y_test = train_test_split(
     X, y, test_size=0.2, random_state=42, stratify=y
 )
 
-# 3) Load pretrained XGBoost model (already fitted elsewhere)
-xgb = joblib.load("/dbfs/FileStore/xgb_binary_model.joblib")
+# 3) Load pretrained RandomForest model (already fitted elsewhere)
+rf = joblib.load("/dbfs/FileStore/rf_binary_model.joblib")
 
-xgb_prob = xgb.predict_proba(X_test)[:, 1]
-xgb_pred = (xgb_prob >= 0.5).astype(int)
+rf_prob_base = rf.predict_proba(X_test)[:, 1]
+rf_pred_base = (rf_prob_base >= 0.5).astype(int)
 
-print("Pretrained XGBoost")
-print("  AP      :", round(average_precision_score(y_test, xgb_prob), 4))
-print("  ROC-AUC :", round(roc_auc_score(y_test, xgb_prob), 4))
-print("  F1@0.50 :", round(f1_score(y_test, xgb_pred), 4))
+print("Pretrained RandomForest")
+print("  AP      :", round(average_precision_score(y_test, rf_prob_base), 4))
+print("  ROC-AUC :", round(roc_auc_score(y_test, rf_prob_base), 4))
+print("  F1@0.50 :", round(f1_score(y_test, rf_pred_base), 4))
 
-# 4) Build RuleFit using the pretrained XGBoost as tree generator
+# 4) Build RuleFit using the pretrained RandomForest as tree generator
 rulefit = RuleFitClassifier(
     n_estimators=200,  # tune this for rule-set size vs runtime
-    tree_generator=xgb,
+    tree_generator=rf,
     random_state=42,
 )
 # RuleFit expects numpy arrays; pass feature_names in the same column order
@@ -182,7 +182,7 @@ for i, rule in enumerate(rules.head(10).to_dict("records"), 1):
 ```
 
 **Notes**
-- Keep the exact same feature engineering + one-hot mapping as the original XGBoost training pipeline.
+- Keep the exact same feature engineering + one-hot mapping as the original tree-model training pipeline.
 - Persist feature order (`feature_cols`) at training time and reindex at inference/interpretation time.
 - For very large data, prepare features in Spark first, then move only the needed subset to Pandas.
 

@@ -156,12 +156,14 @@ print("  F1@0.50 :", round(f1_score(y_test, xgb_pred), 4))
 
 # 4) Build RuleFit using the pretrained XGBoost as tree generator
 rulefit = RuleFitClassifier(
-    n_estimators=200,  # max trees consumed from pretrained XGBoost for candidate-rule extraction
+    n_estimators=200,
     tree_generator=xgb,
     random_state=42,
 )
-# RuleFit expects numpy arrays; provide explicit feature_names for readable rules
-rulefit.fit(X_train.values, y_train.values, feature_names=X_train.columns.tolist())
+# RuleFit expects numpy arrays; pass feature_names in the same column order
+feature_names = X_train.columns.tolist()
+assert len(feature_names) == X_train.shape[1]
+rulefit.fit(X_train.values, y_train.values, feature_names=feature_names)
 
 rf_prob = rulefit.predict_proba(X_test.values)[:, 1]
 rf_pred = (rf_prob >= 0.5).astype(int)

@@ -154,6 +154,33 @@ inactive = all_customers.join(active_customers, on="customer_id", how="left_anti
 
 ---
 
+## 7. Semi-Join Pre-Filter (Shrink the Right Side Before a Big Join)
+
+The single highest-impact optimization when joining a small label/cohort table to one or more large feature tables. Drop feature rows that can never match **before** they get shuffled.
+
+```python
+from pyspark.sql.functions import broadcast
+
+# Distinct keys from the small driving table
+cohort_keys = label_df.select("customer_id").distinct()
+
+# Pre-filter the large feature table — only rows whose key is in the cohort survive
+features_filtered = feature_table.join(
+    broadcast(cohort_keys), on="customer_id", how="leftsemi"
+)
+
+# Now do the real (outer) join against the much smaller right side
+result = label_df.join(features_filtered, on="customer_id", how="left")
+```
+
+**Why it works:** a `leftsemi` join returns rows from the left input whose key exists in the right input, with no column duplication and no fan-out. Broadcasting the small key list makes it a `BroadcastHashJoin` (no shuffle of the big table for the filter step), so the subsequent shuffle carries only matching rows.
+
+**Semantics are preserved for a LEFT OUTER main join:** unmatched label keys still appear with nulls — the pre-filter only removes feature rows whose key is absent from the label, and those would have been discarded by the join anyway. (Do not use this to "optimize" an INNER join you intended to be OUTER — verify the main join type first.)
+
+Apply it to **every** large right-side table in a multi-table join chain. In one production modeling pipeline this cut total right-side shuffle from ~400 GiB to ~30 GiB (~92%).
+
+---
+
 ## Common Mistakes
 
 | Mistake | Fix |

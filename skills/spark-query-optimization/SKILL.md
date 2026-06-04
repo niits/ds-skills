@@ -1,6 +1,6 @@
 ---
 name: spark-query-optimization
-description: Query and analyze data with Spark SQL and PySpark as a Data Scientist on Databricks. Use when exploring Delta Lake tables, building feature engineering pipelines, or preparing data for ML. Covers read-only profiling, predicate pushdown, join hints, window aggregations, EDA patterns, sampling, and Pandas interoperability. Assumes no admin rights — does NOT cover OPTIMIZE, VACUUM, ALTER TABLE, or ANALYZE TABLE.
+description: Query and analyze data with Spark SQL and PySpark as a Data Scientist on Databricks. Use when exploring Delta Lake tables, building feature engineering pipelines, or preparing data for ML. Covers read-only profiling, predicate pushdown, join hints, semi-join pre-filtering, wide multi-table join chains for modeling datasets, MLlib double-execution avoidance, window aggregations, EDA patterns, sampling, and Pandas interoperability. Assumes no admin rights — does NOT cover OPTIMIZE, VACUUM, ALTER TABLE, or ANALYZE TABLE.
 allowed-tools: Read Write Edit Bash
 license: MIT license
 metadata:
@@ -547,6 +547,86 @@ Wait if:
 
 ---
 
+## Building Wide Modeling Datasets (Join Chains + MLlib)
+
+The hardest DS query is not a single join — it's the **modeling dataset**: a label table left-joined to 10+ feature tables, then fed into an MLlib `Pipeline`. A 30M-row label table joined to a dozen large feature tables can shuffle hundreds of GiB and run for hours. Every fix below is query-level or session-level — no admin rights.
+
+**Symptom:** the final `fit` + `transform` + `write` cell runs far longer than expected. Read the physical plan from Spark UI (it can be 100+ nodes) and check, per feature table:
+
+```
+[ ] SortMergeJoin or BroadcastHashJoin? (right side shuffling fully = SMJ)
+[ ] How many rows / GiB shuffled on the right side? (ShuffleQueryStage size)
+[ ] Is there a filter on the ENTITY key, or only on the time key?
+[ ] Dynamic Partition Pruning active? (dynamicpruningexpression in the scan)
+[ ] sizeInBytes wildly inflated (e.g. 4E+94 B)? → Catalyst stats error across the chain
+```
+
+The dominant cost is almost always **right-side over-shuffle**: each feature table shuffles all rows in its time range, even though most entities never appear in the 30M-row label set and get discarded after the join.
+
+### Fix 1 (biggest impact) — Semi-join pre-filter on the entity key
+
+Drop rows that can never match **before** the expensive shuffle, using a broadcast `leftsemi` join against the distinct label entities.
+
+```python
+from pyspark.sql.functions import broadcast
+
+# Distinct entity keys from the label table — small, broadcastable
+label_entities = label_df.select("entity_key").distinct()
+
+# Pre-filter EVERY feature table before the main left-outer join
+for name, feat in feature_tables.items():
+    feature_tables[name] = feat.join(broadcast(label_entities), on="entity_key", how="leftsemi")
+
+# Then build modeling_df with the normal left-outer joins
+```
+
+**Semantics are preserved exactly.** The outer join still emits nulls for label entities missing from a feature table; the pre-filter only removes feature rows whose entity is absent from the label — those would have been discarded anyway. Works for Feature Store tables and Delta-path tables alike.
+
+### Fix 2 — Reorder joins smallest → largest
+
+Join the smallest feature table first and the largest last. AQE collects real runtime statistics from the early, cheap stages and uses them to make better adaptive decisions (coalesce, skew handling) on the biggest stage — instead of guessing with no stats when the largest table is joined early.
+
+### Fix 3 — Repartition the left side once, up front
+
+```python
+# Distribute the label table evenly on the join keys before the chain begins
+modeling_df = label_df.repartition(2000, "entity_key", "time_key")
+```
+
+This avoids skew accumulating across a long chain of joins.
+
+### Fix 4 — Tune shuffle parallelism for the total shuffle volume (session-level)
+
+Default `shuffle.partitions=200` over hundreds of GiB gives ~900 MiB/partition — well past the 128–256 MiB sweet spot, causing spill and OOM risk.
+
+```python
+spark.conf.set("spark.sql.shuffle.partitions", 2000)                 # target ~200 MiB/partition
+spark.conf.set("spark.sql.adaptive.advisoryPartitionSizeInBytes", 256 * 1024 * 1024)
+spark.conf.set("spark.sql.adaptive.skewJoin.enabled", True)
+spark.conf.set("spark.sql.adaptive.skewJoin.skewedPartitionFactor", 3)  # more sensitive to moderate skew
+spark.conf.set("spark.sql.autoBroadcastJoinThreshold", 100 * 1024 * 1024)  # broadcast the entity-key list
+# Only if you have write access on the output table / your own schema:
+spark.conf.set("spark.databricks.delta.optimizeWrite.enabled", True)   # or .option("delta.optimizeWrite","true") on write
+```
+
+### Fix 5 — Checkpoint before `fit()` to stop double execution
+
+A lazy `modeling_df` fed into a Pipeline is recomputed **twice** — once for `pipeline.fit(df)` and again for `pipeline.transform(df).write(...)`. The whole join chain runs twice with no materialization in between.
+
+```python
+# Materialize the join chain ONCE before MLlib touches it
+modeling_df = modeling_df.localCheckpoint(eager=True)
+
+model = pipeline.fit(modeling_df)                  # reads from checkpoint
+model.transform(modeling_df).write.format("delta")...  # also reads from checkpoint — chain runs once
+```
+
+`localCheckpoint(eager=True)` writes to executor-local disk: faster than a Delta intermediate write (no object-store round-trip) but **not fault-tolerant** — an executor loss forces recompute from scratch. Prefer it on stable clusters with low preemption; use a Delta intermediate write if the cluster is volatile.
+
+> Full worked example, before/after physical-plan structure, and the DPP-inconsistency discussion are in `references/join_chain_optimization.md`.
+
+---
+
 ## Feature Engineering Quick Reference
 
 ```python
@@ -592,6 +672,9 @@ df = df.withColumn("amount_per_day", F.col("total_amount") / F.col("active_days"
 - **Unpersist after use**: `.cache()` holds memory cluster-wide. Release with `.unpersist()` when done.
 - **Fixed date ranges**: Use explicit dates (`>= '2024-01-01'`), not `CURRENT_DATE - 30`. Required for reproducibility.
 - **Read the plan**: Run `df.explain()` before submitting expensive queries. Fix cartesian products and missing pushdowns first.
+- **Pre-filter big right-side tables**: Before joining a small label/cohort to a large feature table, `leftsemi`-broadcast the cohort keys to drop non-matching feature rows ahead of the shuffle. Safe for left-outer joins (unmatched labels still get nulls).
+- **Materialize before MLlib**: `localCheckpoint(eager=True)` a multi-join `modeling_df` before `pipeline.fit()` so the chain isn't recomputed by the later `transform().write()`.
+- **Size shuffle.partitions to the data**: On hundreds of GiB of shuffle, raise `spark.sql.shuffle.partitions` so each partition lands in the 128–256 MiB range — the default 200 spills and risks OOM.
 - **Flag admin issues to DE**: If a query is slow because the table needs OPTIMIZE or ANALYZE TABLE, note it and ask the data engineer — do not attempt admin operations.
 
 ---
@@ -601,7 +684,8 @@ df = df.withColumn("amount_per_day", F.col("total_amount") / F.col("active_days"
 ### references/
 - `references/eda_patterns.md` — Full EDA checklist: null analysis, distributions, outliers, cardinality, correlation
 - `references/feature_engineering.md` — Feature engineering patterns: lag, rolling, encoding, interaction, time features
-- `references/join_strategies.md` — Join decision tree: broadcast, skew hints, point-in-time, self-join
+- `references/join_strategies.md` — Join decision tree: broadcast, skew hints, point-in-time, self-join, semi-join pre-filter
+- `references/join_chain_optimization.md` — Wide modeling-dataset join chains: semi-join pre-filter, join reordering, shuffle tuning, MLlib double-execution & localCheckpoint, DPP notes
 - `references/window_aggregation_patterns.md` — Window patterns: running total, bounded rolling, rank, dense_rank, lead/lag
 - `references/anti_patterns.md` — Top DS anti-patterns: collect(), toPandas(), Python UDFs, missing filters, SELECT *
 - `references/pandas_interop.md` — Pandas/Spark interoperability: Arrow, toPandas safety limits, createDataFrame

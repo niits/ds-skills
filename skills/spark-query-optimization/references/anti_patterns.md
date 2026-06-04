@@ -168,7 +168,41 @@ df.select(F.approx_percentile("amount", [0.25, 0.50, 0.75, 0.95, 0.99])).show()
 
 ---
 
-## 10. Forgetting to Unpersist Cached DataFrames
+## 10. Feeding a Lazy DataFrame Into `fit()` Then `transform().write()`
+
+```python
+# BAD: the whole join chain behind modeling_df runs TWICE
+model = pipeline.fit(modeling_df)                 # execution #1
+model.transform(modeling_df).write.save(...)      # execution #2 — recomputes everything
+
+# GOOD: materialize once, then both reads are cheap
+modeling_df = modeling_df.localCheckpoint(eager=True)
+model = pipeline.fit(modeling_df)
+model.transform(modeling_df).write.save(...)
+```
+
+**Why it's bad:** MLlib `fit` and the later `transform`/`write` are two separate actions. A lazy DataFrame is recomputed on each action, so an expensive multi-join `modeling_df` executes its entire DAG twice. `localCheckpoint(eager=True)` writes the result to executor-local disk so both actions read the materialized data (fast, but not fault-tolerant — recomputes from scratch on executor loss). Use a Delta intermediate write instead if the cluster is preemption-prone. `.cache()` also works but can be evicted under memory pressure, silently triggering recompute.
+
+---
+
+## 11. Joining a Big Feature Table Without Filtering to the Cohort First
+
+```python
+# BAD: feature_table (374M rows) shuffles in full, then most rows are discarded by the join
+modeling_df = label_df.join(feature_table, on="customer_id", how="left")  # 30M labels
+
+# GOOD: semi-join pre-filter drops non-matching feature rows BEFORE the shuffle
+from pyspark.sql.functions import broadcast
+cohort = label_df.select("customer_id").distinct()
+feature_filtered = feature_table.join(broadcast(cohort), on="customer_id", how="leftsemi")
+modeling_df = label_df.join(feature_filtered, on="customer_id", how="left")
+```
+
+**Why it's bad:** in a left-outer join only the keys present in the small label table can ever match. Shuffling the full feature table wastes the bulk of the work on rows that get thrown away. The `leftsemi` pre-filter preserves outer-join semantics (unmatched labels still get nulls) while shrinking the shuffle dramatically. See `join_strategies.md` §7.
+
+---
+
+## 12. Forgetting to Unpersist Cached DataFrames
 
 ```python
 # BAD: cache accumulates across cells — others on the cluster OOM

@@ -38,6 +38,27 @@ Includes `swd_style.py` helpers: `declutter()`, `apply_swd_palette()`, `annotate
 `risk_colormap()`, `psi_status()`, `waterfall_colors()`.
 Output rendered inline in Databricks notebooks via `display(fig)` and `displayHTML()`.
 
+### `feature-onboarding/`
+
+End-to-end lifecycle for onboarding a new feature group into a supervised ML pipeline,
+from data-source understanding to production code. Primary focus on **lead scoring** and
+**credit scoring** (binary, ranking-oriented), extensible to recommendation systems.
+
+Twelve phases with a hard Go/No-Go gate. Opinionated on a **Model Mode** choice
+(scorecard/WoE vs GBM) that keeps binning, null handling, monotonicity, and fairness
+consistent. Emphasizes **hypothesis-before-compute** (no brute-forced features) and
+guards the failures that kill models in production:
+- **Leakage** — temporal point-in-time (future/restated/late-arriving data, embargo) *and* definitional tautology (label-proxy correlation test)
+- **Predictive power** — IV/WoE with the practical traps handled (zero-event smoothing, min-event-per-bin, sparse/tie features, rare-event instability); binary-only scope with regression/multiclass alternatives
+- **Redundancy + lift** — Spearman & VIF/multivariate redundancy, then incremental-lift (wrapper/embedded) as the actual decision, not univariate IV alone
+- **Stability** — PSI and out-of-time (OOT) validation
+- **Null handling** — absence vs unknown, missingness flags, mode-dependent imputation
+
+Reference files (`references/`) carry the technical depth with PySpark/pandas snippets;
+domain files (`domains/`) cover credit scoring (scorecard, reason codes, fairness/proxy,
+reject inference), lead scoring (feature latency, selection bias), and the recsys
+extension path.
+
 ---
 
 ## Sources

@@ -402,3 +402,6 @@ Domain-specific chart patterns with ready-to-run code.
 
 ### shared/ (cross-skill)
 - `../shared/nyt_theme.py` — Unified NYT style for matplotlib, Plotly, plotnine. Slide-first defaults (base_size=15, 16:9 figsize). Key exports: `apply_nyt_all()`, `apply_nyt_notebook()`, `NYT` (colors), `FIG_SLIDE`, `FIG_HALF_SLIDE`, `theme_nyt()`
+
+### plotnine-visualization (cross-skill)
+For declarative chart construction using the grammar of graphics, use the `plotnine-visualization` skill. It covers the full plotnine API (`import plotnine as p9`) — geoms, stats, scales, facets, themes — and integrates with `theme_nyt()` from the shared module. Prefer it over matplotlib for new EDA, faceted, or grouped charts where the SWD communication patterns still apply but the rendering is done via plotnine.

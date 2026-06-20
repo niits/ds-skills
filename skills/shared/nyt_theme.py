@@ -401,14 +401,14 @@ def theme_nyt(base_size: int = 15):
 
     Usage
     -----
-    from plotnine import ggplot, aes, geom_line, labs
+    import plotnine as p9
     from nyt_theme import theme_nyt, NYT
 
     (
-        ggplot(df, aes('date', 'value', color='group'))
-        + geom_line(size=1.5)
-        + scale_color_manual(values=NYT.PALETTE)
-        + labs(title='Title IS the takeaway', x='', y='')
+        p9.ggplot(df, p9.aes('date', 'value', color='group'))
+        + p9.geom_line(size=1.5)
+        + p9.scale_color_manual(values=NYT.PALETTE)
+        + p9.labs(title='Title IS the takeaway', x='', y='')
         + theme_nyt()                   # slide (default)
         + theme_nyt(base_size=11)       # notebook
     )

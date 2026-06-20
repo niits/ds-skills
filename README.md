@@ -19,6 +19,16 @@ Covers matplotlib/seaborn chart patterns for line plots, grouped bars, heatmaps,
 leaderboard charts, and multi-panel figures with colorblind-safe palettes and
 venue-specific sizing (NeurIPS, ICML, Nature, Science, Cell).
 
+### `plotnine-visualization/`
+
+Grammar-of-graphics visualizations in Python using [plotnine](https://plotnine.org) — a faithful ggplot2 port for Python.
+Use for EDA, business dashboards, and any chart built by layering geoms + aesthetics + scales + themes.
+Covers the full grammar: geoms (40+), stats, scales, facets, coordinate systems, position adjustments, and themes.
+Includes ready-to-use patterns (scatter, histogram, violin, heatmap, time series, faceted small multiples)
+and theme recipes (NYT, FT, dark/presentation, publication/academic).
+Works with both **pandas** and **polars** DataFrames.
+Display in Databricks notebooks via `display(p.draw())`.
+
 ### `storytelling-with-data/`
 
 Framework for communicating data findings to an audience. Covers general visualization principles
@@ -50,6 +60,7 @@ Skills are adapted from the following open-source repositories:
 | `scientific-visualization` (core) | [K-Dense-AI/claude-scientific-skills — scientific-visualization](https://github.com/K-Dense-AI/claude-scientific-skills/tree/main/scientific-skills/scientific-visualization) | MIT |
 | `scientific-visualization` (ML chart patterns) | [Orchestra-Research/AI-Research-SKILLs — academic-plotting](https://github.com/Orchestra-Research/AI-Research-SKILLs/tree/main/20-ml-paper-writing/academic-plotting) | MIT |
 | `storytelling-with-data` | Adapted from *Storytelling with Data* by Cole Nussbaumer Knaflic (Wiley, 2015) | — |
+| `plotnine-visualization` | Based on [plotnine](https://plotnine.org) docs and [rstudio/cheatsheets](https://github.com/rstudio/cheatsheets) | MIT / CC BY SA |
 
 ### Adaptations
 

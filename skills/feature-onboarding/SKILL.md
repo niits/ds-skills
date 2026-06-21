@@ -94,7 +94,7 @@ Every feature must answer: *"What behavior or state does this measure from the s
 **Goal**: Compute features quickly and check signal exists.
 - Dedicated exploration notebook, separate from pipeline code.
 - Load label + target population (observation periods only); load raw data over observation **+ historical** periods (enough for lag computation).
-- **Single read** of source → **single heavy aggregation** → **persist one intermediate** → derive multiple outputs from it (aggregates, concentration metrics, pivots, lags). Keep distributed; no driver materialization; no diagnostic counts in production-bound code. (See `spark-query-optimization` skill for the join-chain mechanics.)
+- **Single read** of source → **single heavy aggregation** → **persist one intermediate** → derive multiple outputs from it (aggregates, concentration metrics, pivots, lags). Keep distributed; no driver materialization; no diagnostic counts in production-bound code. (See the `databricks` skill for the join-chain mechanics.)
 
 **Output**: structure-features DF, temporal-features DF, named column lists per group.
 

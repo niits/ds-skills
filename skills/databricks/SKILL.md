@@ -1,15 +1,30 @@
 ---
-name: spark-query-optimization
-description: Query and analyze data with Spark SQL and PySpark as a Data Scientist on Databricks. Use when exploring Delta Lake tables, building feature engineering pipelines, or preparing data for ML. Covers read-only profiling, predicate pushdown, join hints, semi-join pre-filtering, wide multi-table join chains for modeling datasets, MLlib double-execution avoidance, window aggregations, EDA patterns, sampling, and Pandas interoperability. Assumes no admin rights — does NOT cover OPTIMIZE, VACUUM, ALTER TABLE, or ANALYZE TABLE.
+name: databricks
+description: >
+  Effective Databricks usage for Data Scientists: query and analyze large data with
+  Spark SQL/PySpark (Delta Lake, AQE, join optimization, window functions, EDA patterns,
+  pandas interop), and package models with MLflow for reproducibility and notebook
+  independence. Covers profiling, predicate pushdown, join hints, feature engineering,
+  MLflow model logging/registry, and batch inference patterns.
 allowed-tools: Read Write Edit Bash
 license: MIT license
 metadata:
     skill-author: ds-skills
-    domain: general (with optional banking examples)
-    adapted-for: Databricks Runtime 13+ (Spark 3.4+, Delta Lake, AQE enabled by default)
+    domain: general
+    adapted-for: Databricks Runtime 13+ (Spark 3.4+, MLflow 2.x)
 ---
 
-# Spark Querying for Data Scientists
+# Databricks for Data Scientists
+
+This skill has two halves of the same job. **Part A — Querying** covers reading and
+shaping large data with Spark/Delta as a read-heavy DS. **Part B — MLflow Model
+Packaging** turns the model you trained on that data into a reproducible,
+notebook-independent artifact. Most projects use both: query → feature-engineer →
+train → package.
+
+---
+
+# Part A — Querying with Spark
 
 ## Overview
 
@@ -657,7 +672,170 @@ df = df.withColumn("amount_per_day", F.col("total_amount") / F.col("active_days"
 
 ---
 
-## Quality Standards
+# Part B — MLflow Model Packaging
+
+## Overview
+
+Querying gets you a training set; packaging gets you a model that survives leaving
+your notebook. The failure you are designing against: the model scores perfectly in
+the notebook that trained it and breaks the moment someone else loads it on a cold
+cluster — because it secretly depended on a variable, an in-memory fitted encoder, or
+a library version that only existed in your session.
+
+A correctly packaged model is **self-contained and reproducible**. Three principles:
+
+1. **No hidden dependencies.** The logged model must not reference notebook globals,
+   widgets, `spark` from the outer scope, or relative-path imports (`from utils import ...`).
+   If `models:/...` is loaded in a fresh Python process with nothing else defined,
+   it must still predict.
+2. **Log complete artifacts.** Always log the model **plus** an `input_example`, the
+   environment (`conda_env` or `pip_requirements`), and metadata (metrics, params,
+   signature). The `input_example` lets MLflow infer and enforce the schema.
+3. **Preprocessing travels with the model.** Never log a bare estimator and keep the
+   fitted scaler/encoder "in the notebook." Wrap preprocessing + estimator in one
+   `Pipeline` (or a `pyfunc` wrapper) so the exact transforms that fit the model also
+   serve it. A separate preprocessing step is the #1 source of train/serve skew.
+
+## Pattern 1 — sklearn / LightGBM Pipeline
+
+The common case: a scikit-learn `Pipeline` (which can wrap a `LGBMClassifier`). Log it
+with `mlflow.sklearn.log_model`, an `input_example`, and an inferred signature.
+
+```python
+import mlflow
+from mlflow.models import infer_signature
+from sklearn.pipeline import Pipeline
+from sklearn.preprocessing import StandardScaler
+from sklearn.compose import ColumnTransformer
+from lightgbm import LGBMClassifier
+
+# Preprocessing is INSIDE the pipeline — it gets logged with the model.
+pre = ColumnTransformer([("num", StandardScaler(), num_cols)], remainder="passthrough")
+pipe = Pipeline([("pre", pre), ("model", LGBMClassifier(n_estimators=300))])
+pipe.fit(X_train, y_train)
+
+# input_example drives schema inference + enforcement at load time.
+input_example = X_train.head(5)
+signature = infer_signature(X_train, pipe.predict_proba(X_train)[:, 1])
+
+with mlflow.start_run() as run:
+    mlflow.log_params({"n_estimators": 300})
+    mlflow.log_metric("auc_val", auc_val)
+    mlflow.sklearn.log_model(
+        sk_model=pipe,
+        artifact_path="model",
+        input_example=input_example,
+        signature=signature,
+        pip_requirements=[                  # pin versions — see reproducibility checklist
+            f"lightgbm=={lightgbm.__version__}",
+            f"scikit-learn=={sklearn.__version__}",
+        ],
+    )
+    model_uri = f"runs:/{run.info.run_id}/model"
+```
+
+## Pattern 2 — custom model with external artifacts (`pyfunc`)
+
+When the model is not a single sklearn estimator — custom logic, a lookup table, an
+embedding file, multiple objects — subclass `mlflow.pyfunc.PythonModel`. External
+files are passed through `artifacts` and re-loaded in `load_context`, never read from a
+notebook path at predict time.
+
+```python
+import mlflow.pyfunc
+
+class ScorerModel(mlflow.pyfunc.PythonModel):
+    def load_context(self, context):
+        import joblib, json
+        self.model = joblib.load(context.artifacts["model_file"])
+        with open(context.artifacts["thresholds"]) as f:
+            self.thresholds = json.load(f)
+
+    def predict(self, context, model_input):
+        proba = self.model.predict_proba(model_input)[:, 1]
+        return (proba >= self.thresholds["cutoff"]).astype(int)
+
+with mlflow.start_run() as run:
+    mlflow.pyfunc.log_model(
+        artifact_path="model",
+        python_model=ScorerModel(),
+        artifacts={                          # files copied into the model — no notebook paths
+            "model_file": "/dbfs/tmp/model.joblib",
+            "thresholds": "/dbfs/tmp/thresholds.json",
+        },
+        input_example=input_example,
+        pip_requirements=["scikit-learn==1.4.2", "joblib==1.4.0"],
+    )
+```
+
+## Pattern 3 — Model Registry: log → Staging → Production
+
+Promote by stage so consumers load `models:/name/Production` and never hard-code a run id.
+
+```python
+# Register the logged model version
+result = mlflow.register_model(model_uri, "credit_default_scorer")
+
+from mlflow import MlflowClient
+client = MlflowClient()
+client.transition_model_version_stage(
+    name="credit_default_scorer", version=result.version, stage="Staging")
+# ... after validation passes ...
+client.transition_model_version_stage(
+    name="credit_default_scorer", version=result.version, stage="Production",
+    archive_existing_versions=True)
+
+# Consumers load by stage, not by run id — decoupled from the training notebook.
+model = mlflow.pyfunc.load_model("models:/credit_default_scorer/Production")
+```
+
+> On Unity Catalog-backed MLflow, model "stages" are replaced by **aliases** (e.g.
+> `@champion`) and three-level names (`catalog.schema.model`). The principle is the
+> same: consumers reference a stable pointer, not a run id.
+
+## Pattern 4 — batch inference as a Job (not notebook commands)
+
+Score in a **Databricks Job** that loads the registered model and writes a Delta table.
+Use `mlflow.pyfunc.spark_udf` so inference runs distributed across the cluster, and
+make the job idempotent (deterministic input window, overwrite/merge by key). Do not
+leave scoring as interactive notebook cells that depend on session state.
+
+```python
+import mlflow
+
+# Runs as a scheduled Job task, not an interactive cell.
+predict_udf = mlflow.pyfunc.spark_udf(
+    spark, model_uri="models:/credit_default_scorer/Production", result_type="double")
+
+scoring_df = spark.table("features.credit_scoring_daily").where("as_of_date = '2026-06-20'")
+scored = scoring_df.withColumn("score", predict_udf(*scoring_df.columns))
+(scored.write.mode("overwrite")
+       .option("replaceWhere", "as_of_date = '2026-06-20'")
+       .saveAsTable("scores.credit_default_daily"))
+```
+
+## Reproducibility Checklist
+
+Before you register a model, confirm:
+
+- **Pinned versions** — `pip_requirements`/`conda_env` lists exact versions of every
+  library the model needs (`==`, not `>=`). The cold cluster will not have your session.
+- **Schema enforcement** — an `input_example` + `signature` are logged so MLflow rejects
+  mismatched input columns/types at serve time instead of silently mis-scoring.
+- **No global notebook state** — the model does not read `spark`, widgets, `dbutils`,
+  notebook globals, or relative imports. Test by loading it in a fresh kernel.
+- **Preprocessing is inside the artifact** — the fitted scaler/encoder/imputer is part
+  of the logged `Pipeline` or `pyfunc`, not a separate notebook step.
+- **External files passed as `artifacts`** — lookup tables, thresholds, embeddings are
+  logged with the model, not read from `/dbfs/tmp` paths at predict time.
+- **Loaded by stage/alias** — consumers use `models:/name/Production` (or `@champion`),
+  never `runs:/<id>/...`.
+
+---
+
+# Quality Standards
+
+## Querying (Part A)
 
 - **Profile before writing**: Run `DESCRIBE DETAIL` and `df.printSchema()` before the first query.
 - **Sample before scale**: Develop on `.sample(0.01)` or `.limit(10_000)`. Run on full data once logic is correct.
@@ -676,6 +854,16 @@ df = df.withColumn("amount_per_day", F.col("total_amount") / F.col("active_days"
 - **Materialize before MLlib**: `localCheckpoint(eager=True)` a multi-join `modeling_df` before `pipeline.fit()` so the chain isn't recomputed by the later `transform().write()`.
 - **Size shuffle.partitions to the data**: On hundreds of GiB of shuffle, raise `spark.sql.shuffle.partitions` so each partition lands in the 128–256 MiB range — the default 200 spills and risks OOM.
 - **Flag admin issues to DE**: If a query is slow because the table needs OPTIMIZE or ANALYZE TABLE, note it and ask the data engineer — do not attempt admin operations.
+
+## Packaging (Part B)
+
+- **Log preprocessing with the model**: Wrap transforms + estimator in one `Pipeline`/`pyfunc`. Never keep a fitted encoder "in the notebook."
+- **Always log an `input_example` + signature**: This gives schema enforcement at serve time and prevents silent mis-scoring on wrong columns.
+- **Pin every dependency**: `pip_requirements` with `==`, not `>=`. The cold cluster does not have your session's library versions.
+- **No notebook globals in the model**: No `spark`, `dbutils`, widgets, or relative imports inside the logged model. Verify by loading in a fresh kernel.
+- **External files go in `artifacts`**: Lookup tables, thresholds, embeddings travel with the model — not read from `/dbfs/tmp` at predict time.
+- **Consumers load by stage/alias**: `models:/name/Production` (or `@champion`), never `runs:/<id>/...` — decouple serving from the training run.
+- **Batch inference is a Job, not cells**: Score with `mlflow.pyfunc.spark_udf` in a scheduled, idempotent Databricks Job over a fixed input window.
 
 ---
 
@@ -697,3 +885,6 @@ df = df.withColumn("amount_per_day", F.col("total_amount") / F.col("active_days"
 - Databricks AQE: https://docs.databricks.com/aws/en/optimizations/aqe
 - Delta Lake Time Travel: https://docs.delta.io/latest/delta-batch.html#query-an-older-snapshot-of-a-table-time-travel
 - Databricks Pandas API on Spark: https://docs.databricks.com/aws/en/languages/pandas-api-on-spark
+- MLflow Model Registry: https://mlflow.org/docs/latest/model-registry.html
+- MLflow Models (signatures, input_example, pyfunc): https://mlflow.org/docs/latest/models.html
+- Databricks MLflow batch inference (spark_udf): https://docs.databricks.com/aws/en/machine-learning/model-inference/

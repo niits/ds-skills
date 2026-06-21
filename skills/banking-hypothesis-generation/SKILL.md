@@ -1,5 +1,5 @@
 ---
-name: hypothesis-generation
+name: banking-hypothesis-generation
 description: Structured hypothesis formulation for banking data science. Use when you have experimental observations, model results, or business data and need to formulate testable hypotheses with predictions, propose mechanisms, and design experiments. Covers credit risk, fraud detection, customer analytics, AML, and regulatory model validation contexts. Follows scientific method adapted for banking DS constraints (internal data, regulatory oversight, champion-challenger testing).
 allowed-tools: Read Write Edit Bash
 license: MIT license

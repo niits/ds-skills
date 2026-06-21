@@ -1,5 +1,5 @@
 # NYT (New York Times editorial) style — slide-optimized
-# Usage: plt.style.use('/dbfs/FileStore/ds-skills/scientific-visualization/assets/nyt.mplstyle')
+# Usage: plt.style.use('/dbfs/FileStore/ds-skills/visualization/assets/nyt.mplstyle')
 #
 # Default context: slides (16:9, base_size=15).
 # For notebooks, override: plt.rcParams.update({'font.size': 11, 'figure.figsize': [7, 4]})

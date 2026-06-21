@@ -2,7 +2,7 @@
 
 ## Overview
 
-This reference provides practical code examples for creating publication-ready scientific figures using Matplotlib, Seaborn, and Plotly. All examples follow best practices from `publication_guidelines.md` and use colorblind-friendly palettes from `color_palettes.md`.
+This reference provides practical code examples for creating publication-ready scientific figures using Matplotlib, Seaborn, and Plotly. All examples follow best practices from `publication-guidelines.md` and use colorblind-friendly palettes from `color-palettes.md`.
 
 ## Setup and Configuration
 

@@ -2,8 +2,8 @@
 """
 Metrics Skill Review Council
 ────────────────────────────
-Agents đọc nội dung skills/metrics-evaluation/ và phản biện nhau về
-chất lượng, độ chính xác, và tính thực tế của tài liệu.
+A debate council of agents reads skills/metrics-evaluation/ and critiques the
+documentation's quality, accuracy, and practicality (all in English).
 
 Run:
     python skills/metrics-evaluation/agent_council/review_council.py

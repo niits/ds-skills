@@ -1,6 +1,6 @@
 ---
 name: feature-onboarding
-description: End-to-end lifecycle for onboarding a new feature group into a supervised ML pipeline — from data-source understanding to production code. Primary focus on lead scoring and credit scoring (binary classification, ranking-oriented). Extensible to recommendation systems. Covers source semantics verification, behavior-based feature naming, IV/WoE predictive power, leakage and tautology checks (temporal point-in-time AND definitional), redundancy + incremental-lift selection, lag-horizon analysis, PSI/out-of-time stability, null-handling conventions, and a Go/No-Go gate with documented soft thresholds. Language-agnostic to project structure; examples in PySpark.
+description: Use when onboarding a new feature group into a supervised ML pipeline (lead scoring or credit scoring; binary, ranking-oriented) and you need to gate it against the failures that actually kill models — leakage, definitional tautology, redundancy, and out-of-time drift — before it reaches production code. Covers source-semantics verification, hypothesis-first feature design, IV/WoE screening, incremental-lift selection, point-in-time/leakage audits, PSI and out-of-time stability, mode-dependent null handling, and a soft-threshold Go/No-Go gate. Extensible to recommendation systems; examples in PySpark.
 allowed-tools: Read Write Edit Bash
 license: MIT license
 metadata:

@@ -22,6 +22,13 @@ A hypothesis is a specific, testable, falsifiable statement of a mechanism. In b
 
 A hypothesis is not a question. It is a directional claim with a mechanism: **"If [intervention/change X] then [metric Y] changes by [direction/magnitude Z] in [population/segment W] because [mechanism M]."**
 
+> **Scope vs `feature-onboarding`:** this skill is for **model- and phenomenon-level**
+> investigation hypotheses (why did KS drop? would this intervention move the metric?).
+> The per-*feature* design hypothesis ("this column measures X, should relate to the
+> label because…") lives in the `feature-onboarding` skill, Phase 2. Same `If…then…because`
+> shape, different unit of analysis — use this skill to investigate a result, that one to
+> justify a candidate feature before computing it.
+
 ## When to Use This Skill
 
 - Investigating a model performance regression or unexpected metric

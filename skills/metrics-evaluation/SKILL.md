@@ -1,6 +1,6 @@
 ---
 name: metrics-evaluation
-description: Honest, critical evaluation of ML model metrics. Primary focus on lead scoring, churn prediction, and recommendation systems. Also covers general classification (AP, AUC, F1), regression (RMSE, MAE), and ranking (NDCG). Computes baselines, maps to business KPIs, detects multi-metric failure patterns, and gives specific remediation actions. Does not spin results.
+description: Use when you have model evaluation numbers (AP, AUC, F1, RMSE, NDCG, …) and need an honest, baseline-anchored verdict on whether the model is usable — not a spin. Computes dumb baselines, maps metrics to business KPIs, detects multi-metric failure patterns (leakage, distribution shift, miscalibration), and prescribes specific remediation. Primary focus on lead scoring, churn prediction, and recommendation; also covers general classification, regression, and ranking.
 allowed-tools: Read Write Edit Bash
 license: MIT license
 metadata:

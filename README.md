@@ -5,9 +5,10 @@ All skills run on Databricks clusters and render output inline in notebooks.
 
 ## Skills
 
-Skills are split into **general DS skills** and **banking-domain skills**. Each skill
-ships an `agent_council/review_council.py` — a debate council of agents that critiques
-the skill's own content (all in English).
+Skills are grouped into **general DS skills**, **banking-domain skills**, and an
+**ML-pipeline skill**. Most skills ship an `agent_council/review_council.py` — a debate
+council of agents that critiques the skill's own content (all in English).
+(`feature-onboarding` does not yet include one.)
 
 ### General DS skills
 
@@ -53,7 +54,9 @@ data-as-of dates, no color-only encoding, dual-axis caveats), and a task map of 
 charts (KS curve, PSI bar, migration matrix, vintage curve, fraud anomaly enclosure,
 cohort retention). Defers the SWD framework and library choice to `visualization/`.
 
-### `feature-onboarding/`
+### ML-pipeline skills
+
+#### `feature-onboarding/`
 
 End-to-end lifecycle for onboarding a new feature group into a supervised ML pipeline,
 from data-source understanding to production code. Primary focus on **lead scoring** and
@@ -89,7 +92,10 @@ Skills are adapted from the following open-source repositories:
 
 ### Adaptations
 
-All skills have been modified for Databricks:
+Skills have been modified for Databricks:
 - LaTeX output removed; replaced with Markdown/HTML rendered in notebook cells
 - File export removed; figures displayed inline via `display(fig)`
-- Script imports reference DBFS paths (`/dbfs/FileStore/...`)
+- For skills that ship Python assets (`visualization`, `shared`), script imports
+  reference DBFS paths (`/dbfs/FileStore/...`); the analysis-only skills
+  (`feature-onboarding`, `metrics-evaluation`, `banking-hypothesis-generation`) are
+  pure-PySpark/pandas snippets with no DBFS path dependencies

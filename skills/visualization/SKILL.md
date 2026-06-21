@@ -122,8 +122,8 @@ plotnine than as a hand-built matplotlib subplot grid.
 
 Get the details right (these are reject-triggers at review): vector format (PDF/SVG)
 or ≥300 DPI raster, colorblind-safe palette, error bars defined, font sizes legible at
-print size, venue column-width sizing. → `references/publication_guidelines.md`,
-`references/journal_requirements.md`, `references/matplotlib_examples.md`.
+print size, venue column-width sizing. → `references/publication-guidelines.md`,
+`references/journal-requirements.md`, `references/matplotlib-examples.md`.
 
 ---
 
@@ -133,6 +133,7 @@ print size, venue column-width sizing. → `references/publication_guidelines.md
 decluttered spines, title-as-insight.
 
 ```python
+import sys; sys.path.append("..")          # make `shared` importable (or the DBFS path you uploaded to)
 from shared.nyt_theme import apply_nyt_all, NYT, FIG_SLIDE   # ../shared/nyt_theme.py
 apply_nyt_all()                            # NYT rcParams (also strips top/right spines)
 fig, ax = plt.subplots(figsize=FIG_SLIDE)
@@ -159,9 +160,9 @@ integration, Databricks rendering, and "when NOT to use plotnine" are in
 ## Publication Styling Reference (matplotlib)
 
 Venue sizing, colorblind palettes (Okabe-Ito, Tol, Wong, viridis family), spines,
-error bars, and multi-panel patterns are in `references/publication_guidelines.md`,
-`references/journal_requirements.md`, `references/color_palettes.md`,
-`references/style-guide.md`, and `references/matplotlib_examples.md`. The `.mplstyle`
+error bars, and multi-panel patterns are in `references/publication-guidelines.md`,
+`references/journal-requirements.md`, `references/color-palettes.md`,
+`references/style-guide.md`, and `references/matplotlib-examples.md`. The `.mplstyle`
 files in `assets/` (`nature`, `publication`, `presentation`, `nyt`) and
 `assets/style_presets.py` (`apply_publication_style`, `set_color_palette`,
 `configure_for_journal`) implement these.
@@ -187,8 +188,8 @@ files in `assets/` (`nature`, `publication`, `presentation`, `nyt`) and
 
 ### references/ — styling & grammar
 - `grammar-of-graphics.md` — plotnine geom/stat/scale/facet/theme API
-- `publication_guidelines.md`, `journal_requirements.md`, `style-guide.md`
-- `color_palettes.md`, `matplotlib_examples.md`, `data-visualization.md`
+- `publication-guidelines.md`, `journal-requirements.md`, `style-guide.md`
+- `color-palettes.md`, `matplotlib-examples.md`, `data-visualization.md`
 
 ### references/ — general analysis charts
 - `model-evaluation-viz.md` — ROC, PR, calibration, confusion-matrix charts

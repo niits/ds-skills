@@ -97,7 +97,7 @@ Write in English. Under 200 words.""",
 
     "Accessibility Auditor": {
         "color": PURPLE,
-        "focus_files": ["SKILL.md", "references/color_palettes.md", "references/grammar-of-graphics.md"],
+        "focus_files": ["SKILL.md", "references/color-palettes.md", "references/grammar-of-graphics.md"],
         "system": """\
 You are the Accessibility Auditor.
 

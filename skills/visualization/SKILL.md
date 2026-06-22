@@ -203,4 +203,6 @@ files in `assets/` (`nature`, `publication`, `presentation`, `nyt`) and
 **Cross-skill:** `../banking-visualization/` for domain charts (KS, PSI, vintage,
 fraud, customer analytics) and regulated-audience guidance. `../shared/nyt_theme.py`
 for the unified NYT style across matplotlib, Plotly, and plotnine (`apply_nyt_all()`,
-`theme_nyt()`, `NYT`, `FIG_SLIDE`).
+`theme_nyt()`, `NYT`, `FIG_SLIDE`). `../plotnine-visualization/` for the full plotnine
+API (`import plotnine as p9`) — geoms, stats, scales, facets, themes — when a chart fits
+the grammar of graphics but the SWD communication patterns here still apply.

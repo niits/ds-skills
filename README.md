@@ -22,6 +22,16 @@ Packaging:** turn a trained model into a reproducible, notebook-independent arti
 (`log_model` with `input_example`/signature, `pyfunc` for custom models, Model Registry
 stage/alias promotion, `spark_udf` batch inference, a reproducibility checklist).
 
+#### `plotnine-visualization/`
+
+Grammar-of-graphics visualizations in Python using [plotnine](https://plotnine.org) — a faithful ggplot2 port for Python.
+Use for EDA, business dashboards, and any chart built by layering geoms + aesthetics + scales + themes.
+Covers the full grammar: geoms (40+), stats, scales, facets, coordinate systems, position adjustments, and themes.
+Includes ready-to-use patterns (scatter, histogram, violin, heatmap, time series, faceted small multiples)
+and theme recipes (NYT, FT, dark/presentation, publication/academic).
+Works with both **pandas** and **polars** DataFrames.
+Display in Databricks notebooks via `display(p.draw())`.
+
 #### `visualization/`
 
 Make charts that communicate. Applies the Storytelling-with-Data (SWD) framework to
@@ -89,6 +99,7 @@ Skills are adapted from the following open-source repositories:
 | `visualization` (publication core) | [K-Dense-AI/claude-scientific-skills — scientific-visualization](https://github.com/K-Dense-AI/claude-scientific-skills/tree/main/scientific-skills/scientific-visualization) | MIT |
 | `visualization` (ML chart patterns) | [Orchestra-Research/AI-Research-SKILLs — academic-plotting](https://github.com/Orchestra-Research/AI-Research-SKILLs/tree/main/20-ml-paper-writing/academic-plotting) | MIT |
 | `visualization` / `banking-visualization` (SWD framework + domain charts) | Adapted from *Storytelling with Data* by Cole Nussbaumer Knaflic (Wiley, 2015) | — |
+| `plotnine-visualization` | Based on [plotnine](https://plotnine.org) docs and [rstudio/cheatsheets](https://github.com/rstudio/cheatsheets) | MIT / CC BY SA |
 
 ### Adaptations
 

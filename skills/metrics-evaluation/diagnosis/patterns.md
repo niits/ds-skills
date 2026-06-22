@@ -306,7 +306,7 @@ Train AP ≈ Val AP ≈ Test AP (suspiciously stable)
 1. Remove all features computed after the prediction timestamp, re-evaluate
 2. Check feature importance — is one feature overwhelmingly dominant? Investigate it.
 3. Shuffle the target on training set: retrain, evaluate on test. If AP >> positive_rate → leakage confirmed.
-4. Re-build with strict point-in-time feature construction
+4. Re-build with strict **point-in-time** feature construction — each feature uses only data at or before the prediction cutoff (the `feature-onboarding` skill, `references/leakage_and_tautology.md`, defines the cutoff/embargo/as-of timeline and the label-proxy tautology test).
 
 ---
 

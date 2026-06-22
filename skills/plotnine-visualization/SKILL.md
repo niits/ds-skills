@@ -600,7 +600,7 @@ displayHTML(f'<img src="data:image/png;base64,{base64.b64encode(buf.read()).deco
 
 ## Shared NYT Theme (cross-skill)
 
-The shared `nyt_theme.py` module provides a unified NYT visual style used across matplotlib, Plotly, and plotnine. Use it instead of the local NYT recipe in `theme-cookbook.md` when working within the `storytelling-with-data` framework.
+The shared `nyt_theme.py` module provides a unified NYT visual style used across matplotlib, Plotly, and plotnine. Use it instead of the local NYT recipe in `theme-cookbook.md` when working within the `visualization` (Storytelling-with-Data) framework.
 
 ```python
 import sys
@@ -629,15 +629,15 @@ Key exports from `nyt_theme.py`:
 
 ## Domain Chart Patterns
 
-When building charts for **credit & risk analytics, fraud, customer analytics, or causal inference**, the `storytelling-with-data` skill has ready-to-run code for specialized charts:
+When building charts for **credit & risk analytics, fraud, customer analytics, or causal inference**, the `visualization` and `banking-visualization` skills have ready-to-run code for specialized charts:
 
 | Domain | Charts | Reference |
 |--------|--------|-----------|
-| Credit & Risk | KS curve, vintage, migration matrix, PSI, bullet chart | `storytelling-with-data/references/domain/credit-risk-charts.md` |
-| Model Evaluation | ROC, calibration, SHAP waterfall, lift/gain | `storytelling-with-data/references/domain/model-evaluation-viz.md` |
-| Fraud | Anomaly time series, calendar heatmap, rolling z-score | `storytelling-with-data/references/domain/fraud-detection-charts.md` |
-| Customer | Cohort retention, funnel, A/B test CI | `storytelling-with-data/references/domain/customer-analytics-charts.md` |
-| Causal Inference | Coefficient plot, parallel trends, RDD | `storytelling-with-data/references/domain/causal-inference-charts.md` |
+| Credit & Risk | KS curve, vintage, migration matrix, PSI, bullet chart | `../banking-visualization/references/credit-risk-charts.md` |
+| Model Evaluation | ROC, calibration, SHAP waterfall, lift/gain | `../visualization/references/model-evaluation-viz.md` |
+| Fraud | Anomaly time series, calendar heatmap, rolling z-score | `../banking-visualization/references/fraud-detection-charts.md` |
+| Customer | Cohort retention, funnel, A/B test CI | `../banking-visualization/references/customer-analytics-charts.md` |
+| Causal Inference | Coefficient plot, parallel trends, RDD | `../visualization/references/causal-inference-charts.md` |
 
 Those charts use matplotlib/seaborn. For new work where the domain chart can be built declaratively, prefer plotnine + the patterns in this skill.
 
@@ -648,6 +648,6 @@ Those charts use matplotlib/seaborn. For new work where the domain chart can be 
 - `references/geom-gallery.md` — Visual examples of every geom
 - `references/theme-cookbook.md` — Theme recipes (NYT, FT, dark mode, academic)
 - `../shared/nyt_theme.py` — Shared NYT style for matplotlib + Plotly + plotnine
-- `../storytelling-with-data/SKILL.md` — Communication framework + domain chart patterns
+- `../visualization/SKILL.md` — Communication framework + domain chart patterns
 - Plotnine docs: https://plotnine.org
 - Cheatsheet: https://posit.co/resources/cheatsheets/ (plotnine)

@@ -1,15 +1,15 @@
 #!/usr/bin/env python3
 """
-Metrics Skill Review Council
-────────────────────────────
-A debate council of agents reads skills/metrics-evaluation/ and critiques the
-documentation's quality, accuracy, and practicality (all in English).
+Databricks Skill Review Council
+───────────────────────────────
+A debate council of agents reads skills/databricks/ and critiques the
+documentation for Spark/Delta correctness, MLflow reproducibility, and honest
+performance claims. All agents argue in English.
 
 Run:
-    python skills/metrics-evaluation/agent_council/review_council.py
+    python skills/databricks/agent_council/review_council.py
 """
 
-import os
 import sys
 import textwrap
 from pathlib import Path
@@ -27,11 +27,11 @@ DIM     = "\033[2m"
 RESET   = "\033[0m"
 
 AGENT_COLORS = {
-    "Citation Checker":    (RED,    "✗"),
-    "Practitioner":        (YELLOW, "⚙"),
-    "Gap Auditor":         (PURPLE, "◈"),
-    "Defender":            (GREEN,  "✓"),
-    "Chief Editor":        (BLUE,   "★"),
+    "Spark Correctness Checker": (RED,    "✗"),
+    "MLflow Practitioner":       (YELLOW, "⚙"),
+    "Performance Auditor":       (PURPLE, "◈"),
+    "Defender":                  (GREEN,  "✓"),
+    "Chief Editor":              (BLUE,   "★"),
 }
 
 # ─── Read skill files ─────────────────────────────────────────────────────────
@@ -56,103 +56,100 @@ def build_skill_digest(files: dict[str, str]) -> str:
 # ─── Agent definitions ────────────────────────────────────────────────────────
 
 AGENTS = {
-    "Citation Checker": {
+    "Spark Correctness Checker": {
         "color": RED,
-        "focus_files": ["foundations/metric_interpretation.md", "SKILL.md"],
+        "focus_files": ["SKILL.md", "references/join_strategies.md", "references/window_aggregation_patterns.md"],
         "system": """\
-You are the Citation Checker reviewing a data science skill documentation set.
+You are the Spark Correctness Checker reviewing a Databricks DS skill.
 
-Your role: verify that every threshold, rule, and claim has proper justification.
-Hunt for:
-- Thresholds stated as fact without academic or industry source
-- Citations that exist but whose actual content doesn't support the claim
-- Industry conventions mislabeled as academic findings
-- Missing caveats where the authors overclaim certainty
+Your role: verify the Spark/Delta Lake patterns are accurate. Hunt for:
+- Deprecated or wrong APIs (e.g., mis-stated join hint syntax, removed methods)
+- Incorrect AQE assumptions (what AQE does/does not auto-fix; skew, coalescing)
+- Delta features described wrongly (time travel, `replaceWhere`, semi-join semantics)
+- Window/aggregation patterns that would give wrong results (frame bounds, missing
+  PARTITION BY implications, null handling)
 
-Be specific: quote the exact phrase that's problematic and explain why.
-Format: short paragraphs, each starting with the file name and line context.
-Under 200 words. Be surgical, not exhaustive.""",
+Be specific: quote the exact code or claim and state the correct version.
+Write in English. Under 200 words. Be surgical, not exhaustive.""",
     },
 
-    "Practitioner": {
+    "MLflow Practitioner": {
         "color": YELLOW,
-        "focus_files": ["SKILL.md", "diagnosis/checklist.md", "diagnosis/patterns.md"],
+        "focus_files": ["SKILL.md"],
         "system": """\
-You are a senior ML practitioner reviewing a skill documentation set.
+You are an MLflow practitioner reviewing the Part B — MLflow Model Packaging
+guidance.
 
-Your role: challenge whether this guidance actually works on a Monday morning
-with a real Databricks notebook, a 3pm deadline, and messy data.
+Your role: challenge whether the packaged model is TRULY notebook-independent and
+will reproduce on a cold cluster. Ask:
+- Would the logged model actually load in a fresh kernel, or does an example still
+  leak a notebook global / relative import?
+- Is the preprocessing genuinely inside the artifact in every pattern?
+- Are signature/input_example, pinned requirements, and artifacts handled correctly,
+  or is something hand-waved?
+- Is the Registry stage/alias guidance current (stages vs UC aliases) and the
+  `spark_udf` batch pattern correct?
 
-Challenge:
-- Steps that sound clean on paper but are ambiguous in practice
-- Missing "what to do when" branches (the checklist may cover clean cases, not real ones)
-- Workflow ordering that doesn't match how real problems unfold
-- Guidance that's correct but unusable without additional context not provided
-
-Quote the specific guidance you're challenging. Propose concretely what's missing.
-Under 200 words.""",
+Quote the specific guidance you challenge and say what would break.
+Write in English. Under 200 words.""",
     },
 
-    "Gap Auditor": {
+    "Performance Auditor": {
         "color": PURPLE,
-        "focus_files": ["domains/", "diagnosis/patterns.md", "business/kpi_mapping.md"],
+        "focus_files": ["SKILL.md", "references/join_chain_optimization.md", "references/anti_patterns.md"],
         "system": """\
-You are the Gap Auditor reviewing a data science skill documentation set.
+You are the Performance Auditor reviewing this skill.
 
-Your role: find what's missing. Not nitpicks — structural gaps that would cause
-a data scientist to fail silently on a real problem.
+Your role: hunt for missing optimizations, misleading performance claims, and
+anti-patterns disguised as recommendations. Ask:
+- Are the "10x faster" style claims defensible, or stated without conditions?
+- Is any recommended pattern actually an anti-pattern at scale (e.g.,
+  broadcast of a too-large side, caching that wastes memory, checkpoint misuse)?
+- What high-impact optimization is missing (partition sizing, predicate pushdown
+  breakers, DPP, shuffle tuning) given the workloads described?
 
-Look for:
-- Domains mentioned in passing but not covered in depth
-- Patterns that exist in practice but aren't in the pattern library
-- Business contexts where the KPI mapping would give wrong guidance
-- The case where all individual steps are correct but the synthesis is incomplete
-
-Be concrete: "A data scientist evaluating a fraud model would reach step X and
-have no guidance on Y" is useful. "Could be more comprehensive" is not.
-Under 200 words.""",
+Quote the specific claim or omission. State the condition under which it is wrong.
+Write in English. Under 200 words.""",
     },
 
     "Defender": {
         "color": GREEN,
-        "focus_files": ["SKILL.md", "foundations/metric_interpretation.md"],
+        "focus_files": ["SKILL.md"],
         "system": """\
-You are the Defender in a skill documentation review council.
+You are the Defender in this review council.
 
-You have heard the Citation Checker, Practitioner, and Gap Auditor.
-Your role: rebut their strongest objections with evidence from the documentation itself.
+You have heard the Spark Correctness Checker, the MLflow Practitioner, and the
+Performance Auditor. Rebut their strongest objections with evidence from the docs.
 
 Rules:
-- Concede points that are actually valid — don't defend everything
+- Concede genuinely valid points — do not defend everything
 - For each rebuttal, quote the specific text that addresses the criticism
-- Distinguish between "this is genuinely missing" and "this is covered but the
-  reviewer missed it"
-- Point out if a criticism applies to ALL skill docs (a general problem) vs
-  this specific one
+- Distinguish "genuinely wrong/missing" from "covered but the reviewer missed it"
+- Note when a criticism depends on a runtime/version the skill explicitly scopes out
 
-Do NOT dismiss criticism without quoting the counter-evidence.
-Under 180 words.""",
+Do NOT dismiss criticism without quoting counter-evidence.
+Write in English. Under 180 words.""",
     },
 
     "Chief Editor": {
         "color": BLUE,
         "focus_files": ["*"],
         "system": """\
-You are the Chief Editor. You've heard the full debate.
+You are the Chief Editor. You have heard the full debate.
 
 Synthesize into an actionable editorial verdict:
 
-1. KEEP AS-IS (strongest parts — what makes this skill genuinely valuable)
+1. KEEP AS-IS (the strongest parts — what makes this skill genuinely valuable)
 2. REVISE (specific sections that need work — cite exact location)
-3. ADD (concrete missing pieces — be specific about what to write, not just "add more")
+3. ADD (concrete missing pieces — say what to write, not just "add more")
 4. VERDICT: one of — Production-ready / Needs revision / Major gaps
 
-Be direct. No padding. Under 220 words.""",
+Be direct. No padding. Write in English. Under 220 words.""",
     },
 }
 
 DEBATE_ORDER = [
-    ("Round 1 — Attack", ["Citation Checker", "Practitioner", "Gap Auditor"]),
+    ("Round 1 — Attack", ["Spark Correctness Checker", "MLflow Practitioner", "Performance Auditor"]),
     ("Round 2 — Rebuttal", ["Defender"]),
     ("Synthesis", ["Chief Editor"]),
 ]
@@ -193,7 +190,7 @@ def build_user_prompt(
 def run_debate(skill_dir: Path) -> None:
     client = anthropic.Anthropic()
 
-    print(f"\n{BOLD}{BLUE}Metrics Skill Review Council{RESET}")
+    print(f"\n{BOLD}{BLUE}Databricks Skill Review Council{RESET}")
     print(f"{DIM}Reading: {skill_dir}{RESET}")
 
     files = load_skill_content(skill_dir)
@@ -233,7 +230,7 @@ def run_debate(skill_dir: Path) -> None:
 # ─── Entry point ──────────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
-    skill_dir = Path(__file__).parent.parent  # skills/metrics-evaluation/
+    skill_dir = Path(__file__).parent.parent  # skills/databricks/
     if not skill_dir.exists():
         print(f"Error: {skill_dir} not found", file=sys.stderr)
         sys.exit(1)

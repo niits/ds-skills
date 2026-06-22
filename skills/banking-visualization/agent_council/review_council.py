@@ -1,15 +1,15 @@
 #!/usr/bin/env python3
 """
-Metrics Skill Review Council
-────────────────────────────
-A debate council of agents reads skills/metrics-evaluation/ and critiques the
-documentation's quality, accuracy, and practicality (all in English).
+Banking Visualization Review Council
+────────────────────────────────────
+A debate council of agents reads skills/banking-visualization/ and critiques the
+documentation for regulatory defensibility, domain-chart correctness, and
+practitioner reproducibility. All agents argue in English.
 
 Run:
-    python skills/metrics-evaluation/agent_council/review_council.py
+    python skills/banking-visualization/agent_council/review_council.py
 """
 
-import os
 import sys
 import textwrap
 from pathlib import Path
@@ -27,11 +27,11 @@ DIM     = "\033[2m"
 RESET   = "\033[0m"
 
 AGENT_COLORS = {
-    "Citation Checker":    (RED,    "✗"),
-    "Practitioner":        (YELLOW, "⚙"),
-    "Gap Auditor":         (PURPLE, "◈"),
-    "Defender":            (GREEN,  "✓"),
-    "Chief Editor":        (BLUE,   "★"),
+    "Regulatory Compliance Checker": (RED,    "✗"),
+    "Domain Accuracy Auditor":       (PURPLE, "◈"),
+    "Practitioner":                  (YELLOW, "⚙"),
+    "Defender":                      (GREEN,  "✓"),
+    "Chief Editor":                  (BLUE,   "★"),
 }
 
 # ─── Read skill files ─────────────────────────────────────────────────────────
@@ -56,103 +56,105 @@ def build_skill_digest(files: dict[str, str]) -> str:
 # ─── Agent definitions ────────────────────────────────────────────────────────
 
 AGENTS = {
-    "Citation Checker": {
+    "Regulatory Compliance Checker": {
         "color": RED,
-        "focus_files": ["foundations/metric_interpretation.md", "SKILL.md"],
+        "focus_files": ["SKILL.md"],
         "system": """\
-You are the Citation Checker reviewing a data science skill documentation set.
+You are the Regulatory Compliance Checker reviewing a banking visualization skill.
 
-Your role: verify that every threshold, rule, and claim has proper justification.
-Hunt for:
-- Thresholds stated as fact without academic or industry source
-- Citations that exist but whose actual content doesn't support the claim
-- Industry conventions mislabeled as academic findings
-- Missing caveats where the authors overclaim certainty
+Your role: ask, for each chart and rule, "would a model validator or examiner
+flag this figure as misleading?" Hunt for:
+- Guidance that permits a truncated magnitude axis, a missing data-as-of date,
+  color-only encoding, or an uncaveated dual axis
+- Charts that could imply causation or hide instability (over-smoothing, thin
+  bins shown without sample size)
+- Trustworthiness rules stated but then contradicted by an example
+- Claims of "defensible" that an actual regulated-reporting standard would reject
 
-Be specific: quote the exact phrase that's problematic and explain why.
-Format: short paragraphs, each starting with the file name and line context.
-Under 200 words. Be surgical, not exhaustive.""",
+Be specific: quote the exact phrase and explain the compliance risk.
+Write in English. Under 200 words. Be surgical, not exhaustive.""",
+    },
+
+    "Domain Accuracy Auditor": {
+        "color": PURPLE,
+        "focus_files": [
+            "references/credit-risk-charts.md",
+            "references/fraud-detection-charts.md",
+            "references/customer-analytics-charts.md",
+        ],
+        "system": """\
+You are the Domain Accuracy Auditor reviewing the banking chart references.
+
+Your role: verify the domain charts are technically correct. Check:
+- KS curve — is the cumulative good/bad construction and the KS statistic correct?
+- PSI bar chart — are the 0.1 / 0.25 bands and the PSI formula right, and is the
+  low-cardinality / zero-bin failure mode acknowledged?
+- Migration matrix — are rows/columns and normalization defined consistently?
+- Vintage curve — is months-on-book cohorting correct?
+- Fraud anomaly / z-score and CLV / A/B effect-size charts — statistically sound?
+
+Quote the specific code or claim you dispute and state the correct version.
+Write in English. Under 200 words.""",
     },
 
     "Practitioner": {
         "color": YELLOW,
-        "focus_files": ["SKILL.md", "diagnosis/checklist.md", "diagnosis/patterns.md"],
+        "focus_files": ["SKILL.md", "references/credit-risk-charts.md"],
         "system": """\
-You are a senior ML practitioner reviewing a skill documentation set.
+You are a banking data scientist who has to reproduce these charts on Monday
+morning from a Databricks notebook against a real Delta table.
 
-Your role: challenge whether this guidance actually works on a Monday morning
-with a real Databricks notebook, a 3pm deadline, and messy data.
+Your role: challenge reproducibility. Ask:
+- Does the provided code actually run, or does it assume columns/objects that are
+  never defined?
+- Is the PySpark/pandas → matplotlib hand-off complete, or are there silent gaps?
+- Can I tell which library to reach for, or does it just say "see the other skill"
+  without enough of a pointer to act?
+- Are the trust rules actionable (concrete) or aspirational (vague)?
 
-Challenge:
-- Steps that sound clean on paper but are ambiguous in practice
-- Missing "what to do when" branches (the checklist may cover clean cases, not real ones)
-- Workflow ordering that doesn't match how real problems unfold
-- Guidance that's correct but unusable without additional context not provided
-
-Quote the specific guidance you're challenging. Propose concretely what's missing.
-Under 200 words.""",
-    },
-
-    "Gap Auditor": {
-        "color": PURPLE,
-        "focus_files": ["domains/", "diagnosis/patterns.md", "business/kpi_mapping.md"],
-        "system": """\
-You are the Gap Auditor reviewing a data science skill documentation set.
-
-Your role: find what's missing. Not nitpicks — structural gaps that would cause
-a data scientist to fail silently on a real problem.
-
-Look for:
-- Domains mentioned in passing but not covered in depth
-- Patterns that exist in practice but aren't in the pattern library
-- Business contexts where the KPI mapping would give wrong guidance
-- The case where all individual steps are correct but the synthesis is incomplete
-
-Be concrete: "A data scientist evaluating a fraud model would reach step X and
-have no guidance on Y" is useful. "Could be more comprehensive" is not.
-Under 200 words.""",
+Quote the specific guidance you are challenging and say what is missing.
+Write in English. Under 200 words.""",
     },
 
     "Defender": {
         "color": GREEN,
-        "focus_files": ["SKILL.md", "foundations/metric_interpretation.md"],
+        "focus_files": ["SKILL.md"],
         "system": """\
-You are the Defender in a skill documentation review council.
+You are the Defender in this review council.
 
-You have heard the Citation Checker, Practitioner, and Gap Auditor.
-Your role: rebut their strongest objections with evidence from the documentation itself.
+You have heard the Regulatory Compliance Checker, the Domain Accuracy Auditor, and
+the Practitioner. Rebut their strongest objections with evidence from the docs.
 
 Rules:
-- Concede points that are actually valid — don't defend everything
+- Concede genuinely valid points — do not defend everything
 - For each rebuttal, quote the specific text that addresses the criticism
-- Distinguish between "this is genuinely missing" and "this is covered but the
-  reviewer missed it"
-- Point out if a criticism applies to ALL skill docs (a general problem) vs
-  this specific one
+- Distinguish "genuinely missing" from "covered but the reviewer missed it"
+- Note when a criticism is really aimed at the general `visualization` skill that
+  this one deliberately defers to
 
-Do NOT dismiss criticism without quoting the counter-evidence.
-Under 180 words.""",
+Do NOT dismiss criticism without quoting counter-evidence.
+Write in English. Under 180 words.""",
     },
 
     "Chief Editor": {
         "color": BLUE,
         "focus_files": ["*"],
         "system": """\
-You are the Chief Editor. You've heard the full debate.
+You are the Chief Editor. You have heard the full debate.
 
 Synthesize into an actionable editorial verdict:
 
-1. KEEP AS-IS (strongest parts — what makes this skill genuinely valuable)
+1. KEEP AS-IS (the strongest parts — what makes this skill genuinely valuable)
 2. REVISE (specific sections that need work — cite exact location)
-3. ADD (concrete missing pieces — be specific about what to write, not just "add more")
+3. ADD (concrete missing pieces — say what to write, not just "add more")
 4. VERDICT: one of — Production-ready / Needs revision / Major gaps
 
-Be direct. No padding. Under 220 words.""",
+Be direct. No padding. Write in English. Under 220 words.""",
     },
 }
 
 DEBATE_ORDER = [
-    ("Round 1 — Attack", ["Citation Checker", "Practitioner", "Gap Auditor"]),
+    ("Round 1 — Attack", ["Regulatory Compliance Checker", "Domain Accuracy Auditor", "Practitioner"]),
     ("Round 2 — Rebuttal", ["Defender"]),
     ("Synthesis", ["Chief Editor"]),
 ]
@@ -193,7 +195,7 @@ def build_user_prompt(
 def run_debate(skill_dir: Path) -> None:
     client = anthropic.Anthropic()
 
-    print(f"\n{BOLD}{BLUE}Metrics Skill Review Council{RESET}")
+    print(f"\n{BOLD}{BLUE}Banking Visualization Review Council{RESET}")
     print(f"{DIM}Reading: {skill_dir}{RESET}")
 
     files = load_skill_content(skill_dir)
@@ -233,7 +235,7 @@ def run_debate(skill_dir: Path) -> None:
 # ─── Entry point ──────────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
-    skill_dir = Path(__file__).parent.parent  # skills/metrics-evaluation/
+    skill_dir = Path(__file__).parent.parent  # skills/banking-visualization/
     if not skill_dir.exists():
         print(f"Error: {skill_dir} not found", file=sys.stderr)
         sys.exit(1)

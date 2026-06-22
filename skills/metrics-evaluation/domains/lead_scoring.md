@@ -8,6 +8,10 @@ The output is a prioritization list for sales — not a yes/no decision.
 **This means**: the model is a ranking model. Precision@k (where k = sales capacity)
 is the correct primary metric, not AP or AUC in isolation.
 
+> For feature selection, leakage/tautology guards, and point-in-time construction in
+> lead scoring, see the `feature-onboarding` skill — `domains/lead_scoring.md` (feature
+> framing) and `references/leakage_and_tautology.md`. This file is about *metric choice*.
+
 ---
 
 ## Business Context

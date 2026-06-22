@@ -25,7 +25,7 @@ The enclosure (shaded region) directs the eye to the period under investigation.
 **Key design decisions:**
 - Plot the raw metric as a thin gray line; overlay a 7-day rolling average as the "expected" reference
 - Shade anomaly windows with a semi-transparent enclosure; label each window with the anomaly description
-- The shaded region is the primary pre-attentive cue — it replaces the need for the audience to hunt for the anomaly themselves
+- The shaded region is the primary pre-attentive cue — it replaces the need for the audience to hunt for the anomaly themselves (pre-attentive attributes are defined in the `visualization` skill, `references/pre-attentive-attributes.md`; this file just applies them to fraud charts)
 
 ---
 

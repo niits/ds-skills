@@ -133,10 +133,18 @@ Replaces dial/gauge charts, which encode values as angles — much harder to dec
 - `pct_current` — % of population in each bin during the current period
 - `psi_total` — pre-computed PSI value (scalar)
 
-**PSI thresholds (industry convention):**
+**PSI thresholds (rules of thumb, not significance tests):**
 - < 0.10 → stable
-- 0.10 – 0.25 → moderate shift, increase monitoring frequency
-- > 0.25 → significant shift, investigate root cause or retrain
+- [0.10, 0.25) → moderate shift, increase monitoring frequency
+- ≥ 0.25 → significant shift — **investigate first** (distinguish genuine population drift
+  from pipeline breakage: a changed join, a backfill, a units change); recalibrate or
+  retrain only *after* root-cause analysis. Do **not** auto-retrain on PSI alone — many
+  sound credit characteristics breach 0.25 from seasonality or portfolio growth.
+
+> PSI is bin- and sample-size-dependent (inflates with small samples; trivial shifts
+> cross the line at millions of rows). For the full treatment — score PSI vs CSI vs
+> feature-distribution PSI, and the false-zero failure on low-cardinality features — see
+> the `feature-onboarding` skill, `references/stability_and_oot.md`.
 
 **Key design decisions:**
 - Side-by-side bars per bin: reference in gray, current in accent color

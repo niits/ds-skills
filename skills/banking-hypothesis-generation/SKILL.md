@@ -1,5 +1,5 @@
 ---
-name: hypothesis-generation
+name: banking-hypothesis-generation
 description: Structured hypothesis formulation for banking data science. Use when you have experimental observations, model results, or business data and need to formulate testable hypotheses with predictions, propose mechanisms, and design experiments. Covers credit risk, fraud detection, customer analytics, AML, and regulatory model validation contexts. Follows scientific method adapted for banking DS constraints (internal data, regulatory oversight, champion-challenger testing).
 allowed-tools: Read Write Edit Bash
 license: MIT license
@@ -21,6 +21,13 @@ A hypothesis is a specific, testable, falsifiable statement of a mechanism. In b
 - Product decisions (would a lower credit limit reduce first-year default without hurting approval rate?)
 
 A hypothesis is not a question. It is a directional claim with a mechanism: **"If [intervention/change X] then [metric Y] changes by [direction/magnitude Z] in [population/segment W] because [mechanism M]."**
+
+> **Scope vs `feature-onboarding`:** this skill is for **model- and phenomenon-level**
+> investigation hypotheses (why did KS drop? would this intervention move the metric?).
+> The per-*feature* design hypothesis ("this column measures X, should relate to the
+> label because…") lives in the `feature-onboarding` skill, Phase 2. Same `If…then…because`
+> shape, different unit of analysis — use this skill to investigate a result, that one to
+> justify a candidate feature before computing it.
 
 ## When to Use This Skill
 

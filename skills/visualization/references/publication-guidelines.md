@@ -202,4 +202,4 @@ Always consult the specific journal's author guidelines. Common variations inclu
 - **PLOS**: TIFF or EPS, specific color space requirements
 - **ACS journals**: Application files (AI, EPS) or high-res TIFF
 
-See `journal_requirements.md` for detailed specifications from major publishers.
+See `journal-requirements.md` for detailed specifications from major publishers.

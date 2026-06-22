@@ -3,7 +3,7 @@ swd_style.py — Storytelling with Data style helpers for Databricks notebooks.
 
 Upload to DBFS and import:
     import sys
-    sys.path.insert(0, '/dbfs/FileStore/ds-skills/storytelling-with-data/scripts')
+    sys.path.insert(0, '/dbfs/FileStore/ds-skills/visualization/assets')
     from swd_style import declutter, apply_swd_palette, annotate_insight, SWD
     from swd_style import risk_colormap, psi_status, fmt_pct, fmt_bps
 

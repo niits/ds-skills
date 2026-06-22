@@ -1,15 +1,30 @@
 ---
-name: spark-query-optimization
-description: Query and analyze data with Spark SQL and PySpark as a Data Scientist on Databricks. Use when exploring Delta Lake tables, building feature engineering pipelines, or preparing data for ML. Covers read-only profiling, predicate pushdown, join hints, semi-join pre-filtering, wide multi-table join chains for modeling datasets, MLlib double-execution avoidance, window aggregations, EDA patterns, sampling, and Pandas interoperability. Assumes no admin rights — does NOT cover OPTIMIZE, VACUUM, ALTER TABLE, or ANALYZE TABLE.
+name: databricks
+description: >
+  Use when querying or shaping large data on Databricks with Spark SQL/PySpark and Delta
+  Lake (profiling, predicate pushdown, joins, window functions, EDA, pandas interop, wide
+  modeling-dataset join chains), or when packaging a trained model with MLflow for
+  reproducible, notebook-independent serving (signature/input_example, pyfunc, registry
+  aliases, batch inference). Covers query optimization and model packaging end to end.
 allowed-tools: Read Write Edit Bash
 license: MIT license
 metadata:
     skill-author: ds-skills
-    domain: general (with optional banking examples)
-    adapted-for: Databricks Runtime 13+ (Spark 3.4+, Delta Lake, AQE enabled by default)
+    domain: general
+    adapted-for: Databricks Runtime 13+ (Spark 3.4+, MLflow 2.x)
 ---
 
-# Spark Querying for Data Scientists
+# Databricks for Data Scientists
+
+This skill has two halves of the same job. **Part A — Querying** covers reading and
+shaping large data with Spark/Delta as a read-heavy DS. **Part B — MLflow Model
+Packaging** turns the model you trained on that data into a reproducible,
+notebook-independent artifact. Most projects use both: query → feature-engineer →
+train → package.
+
+---
+
+# Part A — Querying with Spark
 
 ## Overview
 
@@ -19,7 +34,7 @@ As a DS you are a **read-heavy user** of Spark. Your job is to write queries tha
 - `DESCRIBE DETAIL / EXTENDED / HISTORY` — inspect any table you have SELECT on
 - `EXPLAIN` — see the query plan before running
 - `SELECT`, `WITH` (CTEs), temp views (`createOrReplaceTempView`)
-- Join hints (`/*+ BROADCAST */`, `/*+ SKEW */`) — these are query-level, not admin
+- Join hints (`/*+ BROADCAST */`; `/*+ SKEW */` is Databricks-specific) — query-level, not admin
 - `.cache()` / `.persist()` — memory management within your session
 - Write to your own dev/scratch schema (if granted)
 - Read from Delta, Parquet, CSV, JSON, JDBC
@@ -178,7 +193,9 @@ DS write a lot of joins: transactions to customer features, events to reference 
 | Any size | < 30 MB | Broadcast | `/*+ BROADCAST(small_table) */` |
 | Any size | 30 MB–2 GB | Broadcast (explicit) | Increase threshold or add hint |
 | Both large, same partitioning | Both large | Sort-merge (AQE handles) | No hint needed |
-| Known skew on join key | Any | Skew hint | `/*+ SKEW('table', 'column') */` |
+| Known skew on join key | Any | Skew hint (Databricks; AQE also auto-handles skew) | `/*+ SKEW('table', 'column') */` |
+
+Spark auto-broadcasts the smaller side only below `spark.sql.autoBroadcastJoinThreshold` (default **10 MB**); above that, broadcast won't happen unless you raise the threshold or add an explicit `/*+ BROADCAST */` hint.
 
 **In PySpark:**
 
@@ -206,13 +223,19 @@ result = (
     .join(broadcast(customer_segments), on="customer_id", how="left")
 )
 
-# Pattern 2: Point-in-time join (feature values as-of a past date)
-# Use AS OF syntax on Delta tables — reads the table at a historical timestamp
-features_at_t = spark.sql("""
+# Pattern 2: Reproduce a feature table snapshot with Delta time-travel
+# TIMESTAMP AS OF returns the WHOLE table as it was WRITTEN at that timestamp (one
+# snapshot for all rows) — use it to reproduce a past run, NOT as a per-row as-of join.
+features_snapshot = spark.sql("""
     SELECT * FROM feature_store.customer_features
     TIMESTAMP AS OF '2024-06-01T00:00:00'
     WHERE customer_id IN (SELECT DISTINCT customer_id FROM my_cohort)
 """)
+# WARNING: a true point-in-time join — each label row gets the feature value as of ITS
+# OWN event time — is a DIFFERENT operation (an as-of / range join on event_time, or a
+# Feature Store point-in-time lookup). Time-travel alone does not do this, and using a
+# single snapshot timestamp as if it were per-row as-of causes leakage. See
+# references/join_strategies.md and the feature-onboarding skill for as-of joins.
 
 # Pattern 3: Self-join for computing lag/lead manually
 from pyspark.sql import functions as F
@@ -235,7 +258,7 @@ from pyspark.sql import functions as F
 result = df.groupBy("customer_id", "month").agg(
     F.sum("amount").alias("total_amount"),
     F.count("*").alias("txn_count"),
-    F.approx_percentile("amount", 0.95).alias("p95_amount"),  # 10x faster than percentile
+    F.approx_percentile("amount", 0.95).alias("p95_amount"),  # sketch-based, no full sort
     F.countDistinct("merchant_id").alias("unique_merchants"),
     F.max("transaction_date").alias("last_txn_date")
 )
@@ -288,7 +311,7 @@ The most impactful DS-specific optimization. Python UDFs serialize every row —
 | Need | Use |
 |---|---|
 | String ops, date math, math | `regexp_replace`, `date_diff`, `round`, `abs` — built-in |
-| Percentiles P50/P95/P99 | `approx_percentile(col, 0.95)` — built-in, 10x faster than exact |
+| Percentiles P50/P95/P99 | `approx_percentile(col, 0.95)` — sketch-based, much faster than exact |
 | Custom feature transform (vectorizable) | `@pandas_udf` with Arrow — receives pandas Series |
 | Stateful logic per row with external library | Python `@udf` — last resort |
 
@@ -324,70 +347,20 @@ df.toPandas()   # only safe after .limit() or .filter() down to manageable size
 
 # BAD: exact percentile on 100M rows
 F.percentile("amount", 0.95)        # exact — very slow
-F.approx_percentile("amount", 0.95) # approximate — 10x faster, usually sufficient
+F.approx_percentile("amount", 0.95) # approximate (sketch) — much faster, usually sufficient
 ```
 
 ---
 
 ### Step 7 — EDA Patterns
 
-Common DS exploratory patterns on large tables. All read-only.
+Common read-only EDA on large tables: null counts/rates, numeric distributions via
+`approx_percentile`, categorical value frequency + cardinality, and a native correlation
+matrix (`VectorAssembler` → `Correlation.corr`, no collect). Two rules carry most of the
+value: use `approx_percentile` (not exact) for distributions, and compute null rates as a
+single multi-column `select` rather than per-column passes.
 
-**Null analysis:**
-
-```python
-from pyspark.sql import functions as F
-
-null_counts = df.select([
-    F.count(F.when(F.col(c).isNull(), c)).alias(c)
-    for c in df.columns
-])
-null_counts.show()
-
-# Null rate as percentage
-total = df.count()
-null_rates = df.select([
-    (F.count(F.when(F.col(c).isNull(), c)) / total * 100).alias(f"{c}_null_pct")
-    for c in df.columns
-])
-null_rates.show()
-```
-
-**Distribution check (numeric columns):**
-
-```python
-# Fast percentile scan — use approx for large tables
-numeric_cols = [f.name for f in df.schema.fields if str(f.dataType) in
-                ("DoubleType", "FloatType", "LongType", "IntegerType")]
-
-df.select([
-    F.approx_percentile(c, [0.01, 0.25, 0.50, 0.75, 0.99]).alias(c)
-    for c in numeric_cols
-]).show()
-```
-
-**Value frequency (categorical columns):**
-
-```python
-# Top 20 values for a categorical column
-df.groupBy("category_col").count().orderBy("count", ascending=False).show(20)
-
-# Cardinality check across all string columns
-string_cols = [f.name for f in df.schema.fields if str(f.dataType) == "StringType"]
-df.select([F.countDistinct(c).alias(c) for c in string_cols]).show()
-```
-
-**Correlation matrix (numeric, DS-specific):**
-
-```python
-# PySpark native — works on Spark DataFrames without collecting
-from pyspark.ml.stat import Correlation
-from pyspark.ml.feature import VectorAssembler
-
-assembler = VectorAssembler(inputCols=numeric_cols, outputCol="features")
-vector_df = assembler.transform(df.select(numeric_cols).dropna())
-corr_matrix = Correlation.corr(vector_df, "features").head()[0]
-```
+> Full copy-paste snippets for each pattern: `references/eda_patterns.md`.
 
 ---
 
@@ -415,30 +388,12 @@ agg_df = (spark_df
     .toPandas())
 ```
 
-**Arrow optimization (enabled by default on Databricks):**
+Arrow (`spark.sql.execution.arrow.pyspark.enabled`, on by default on Databricks) batches
+the transfer, so a size-bounded `toPandas()` is already fast — no extra code needed. Going
+back the other way, `spark.createDataFrame(pandas_df, schema=...)` with an explicit schema
+is more reliable than letting Spark infer types.
 
-```python
-# Verify Arrow is enabled — should already be true on Databricks
-spark.conf.get("spark.sql.execution.arrow.pyspark.enabled")  # "true"
-
-# For large toPandas() calls — Arrow batches transfer (10x faster than row-by-row)
-# No extra code needed if Arrow is enabled
-```
-
-**Going back Spark → Pandas → Spark:**
-
-```python
-# Create Spark DataFrame from Pandas (for result upload or further processing)
-result_spark = spark.createDataFrame(pandas_df)
-
-# With explicit schema (more reliable)
-from pyspark.sql.types import StructType, StructField, StringType, DoubleType
-schema = StructType([
-    StructField("customer_id", StringType()),
-    StructField("score", DoubleType()),
-])
-result_spark = spark.createDataFrame(pandas_df, schema=schema)
-```
+> Arrow tuning, safety limits, and `createDataFrame` schema patterns: `references/pandas_interop.md`.
 
 ---
 
@@ -629,35 +584,182 @@ model.transform(modeling_df).write.format("delta")...  # also reads from checkpo
 
 ## Feature Engineering Quick Reference
 
-```python
-# Lag features
-w = Window.partitionBy("customer_id").orderBy("transaction_date")
-df = df.withColumn("amount_lag_1", F.lag("amount", 1).over(w))
-df = df.withColumn("amount_lag_7", F.lag("amount", 7).over(w))
+The recurring DS feature families on Spark: **lag/lead** (`F.lag` over a partitioned,
+ordered window), **rolling aggregates** (pre-aggregate to daily, then `rowsBetween`),
+**frequency/target encoding** (`groupBy().count()` then broadcast-join back),
+**time features** (`dayofweek`, `datediff`, weekend flags), and **interactions/ratios**.
+The non-obvious rule: always pre-aggregate before windowing on raw rows (see Step 5).
 
-# Rolling aggregations (pre-aggregate first)
-daily = df.groupBy("customer_id", "date").agg(F.sum("amount").alias("daily"))
-w_roll = Window.partitionBy("customer_id").orderBy("date").rowsBetween(-29, 0)
-daily = daily.withColumn("rolling_30d_sum", F.sum("daily").over(w_roll))
-daily = daily.withColumn("rolling_30d_mean", F.avg("daily").over(w_roll))
-
-# Categorical encoding — frequency encoding
-freq = df.groupBy("merchant_category").count().withColumnRenamed("count", "cat_freq")
-df = df.join(broadcast(freq), on="merchant_category", how="left")
-
-# Time-based features
-df = df.withColumn("day_of_week", F.dayofweek("transaction_date"))
-df = df.withColumn("is_weekend", (F.dayofweek("transaction_date").isin([1, 7])).cast("int"))
-df = df.withColumn("days_since_last",
-    F.datediff(F.col("transaction_date"), F.lag("transaction_date", 1).over(w)))
-
-# Interaction features
-df = df.withColumn("amount_per_day", F.col("total_amount") / F.col("active_days").cast("double"))
-```
+> Copy-paste patterns for every family: `references/feature_engineering.md`.
 
 ---
 
-## Quality Standards
+# Part B — MLflow Model Packaging
+
+## Overview
+
+Querying gets you a training set; packaging gets you a model that survives leaving
+your notebook. The failure you are designing against: the model scores perfectly in
+the notebook that trained it and breaks the moment someone else loads it on a cold
+cluster — because it secretly depended on a variable, an in-memory fitted encoder, or
+a library version that only existed in your session.
+
+A correctly packaged model is **self-contained and reproducible**. Three principles:
+
+1. **No hidden dependencies.** The logged model must not reference notebook globals,
+   widgets, `spark` from the outer scope, or relative-path imports (`from utils import ...`).
+   If `models:/...` is loaded in a fresh Python process with nothing else defined,
+   it must still predict.
+2. **Log complete artifacts.** Always log the model **plus** an `input_example`, the
+   environment (`conda_env` or `pip_requirements`), and metadata (metrics, params,
+   signature). The `input_example` lets MLflow infer and enforce the schema.
+3. **Preprocessing travels with the model.** Never log a bare estimator and keep the
+   fitted scaler/encoder "in the notebook." Wrap preprocessing + estimator in one
+   `Pipeline` (or a `pyfunc` wrapper) so the exact transforms that fit the model also
+   serve it. A separate preprocessing step is the #1 source of train/serve skew.
+
+## Pattern 1 — sklearn / LightGBM Pipeline
+
+The common case: a scikit-learn `Pipeline` (which can wrap a `LGBMClassifier`). Log it
+with `mlflow.sklearn.log_model`, an `input_example`, and an inferred signature.
+
+```python
+import mlflow
+from mlflow.models import infer_signature
+from sklearn.pipeline import Pipeline
+from sklearn.preprocessing import StandardScaler
+from sklearn.compose import ColumnTransformer
+from lightgbm import LGBMClassifier
+
+# Preprocessing is INSIDE the pipeline — it gets logged with the model.
+pre = ColumnTransformer([("num", StandardScaler(), num_cols)], remainder="passthrough")
+pipe = Pipeline([("pre", pre), ("model", LGBMClassifier(n_estimators=300))])
+pipe.fit(X_train, y_train)
+
+# input_example drives schema inference + enforcement at load time.
+input_example = X_train.head(5)
+signature = infer_signature(X_train, pipe.predict_proba(X_train)[:, 1])
+
+with mlflow.start_run() as run:
+    mlflow.log_params({"n_estimators": 300})
+    mlflow.log_metric("auc_val", auc_val)
+    mlflow.sklearn.log_model(
+        sk_model=pipe,
+        artifact_path="model",
+        input_example=input_example,
+        signature=signature,
+        pip_requirements=[                  # pin versions — see reproducibility checklist
+            f"lightgbm=={lightgbm.__version__}",
+            f"scikit-learn=={sklearn.__version__}",
+        ],
+    )
+    model_uri = f"runs:/{run.info.run_id}/model"
+```
+
+## Pattern 2 — custom model with external artifacts (`pyfunc`)
+
+When the model is not a single sklearn estimator — custom logic, a lookup table, an
+embedding file, multiple objects — subclass `mlflow.pyfunc.PythonModel`. External
+files are passed through `artifacts` and re-loaded in `load_context`, never read from a
+notebook path at predict time.
+
+```python
+import mlflow.pyfunc
+
+class ScorerModel(mlflow.pyfunc.PythonModel):
+    def load_context(self, context):
+        import joblib, json
+        self.model = joblib.load(context.artifacts["model_file"])
+        with open(context.artifacts["thresholds"]) as f:
+            self.thresholds = json.load(f)
+
+    def predict(self, context, model_input):
+        proba = self.model.predict_proba(model_input)[:, 1]
+        return (proba >= self.thresholds["cutoff"]).astype(int)
+
+with mlflow.start_run() as run:
+    mlflow.pyfunc.log_model(
+        artifact_path="model",
+        python_model=ScorerModel(),
+        artifacts={                          # files copied into the model — no notebook paths
+            "model_file": "/dbfs/tmp/model.joblib",
+            "thresholds": "/dbfs/tmp/thresholds.json",
+        },
+        input_example=input_example,
+        pip_requirements=["scikit-learn==1.4.2", "joblib==1.4.0"],
+    )
+```
+
+## Pattern 3 — Model Registry: register → promote by alias
+
+Promote by a stable pointer so consumers load the model without hard-coding a run id.
+On Unity Catalog-backed MLflow (the Databricks default), models use **three-level names**
+(`catalog.schema.model`) and **aliases** (e.g. `@champion`). Model "stages" are not
+available in UC, and `transition_model_version_stage` is deprecated in MLflow 2.9+.
+
+```python
+import mlflow
+from mlflow import MlflowClient
+
+mlflow.set_registry_uri("databricks-uc")          # Unity Catalog registry
+result = mlflow.register_model(model_uri, "main.credit.default_scorer")
+
+client = MlflowClient()
+# Promote by alias after validation passes — no stages, no run id.
+client.set_registered_model_alias(
+    name="main.credit.default_scorer", alias="champion", version=result.version)
+
+# Consumers load by alias — decoupled from the training notebook.
+model = mlflow.pyfunc.load_model("models:/main.credit.default_scorer@champion")
+```
+
+> **Legacy (pre-UC workspace registry):** older setups promoted with
+> `client.transition_model_version_stage(..., stage="Production")` and loaded
+> `models:/name/Production`. Stages are deprecated in MLflow 2.9+; use aliases.
+
+## Pattern 4 — batch inference as a Job (not notebook commands)
+
+Score in a **Databricks Job** that loads the registered model and writes a Delta table.
+Use `mlflow.pyfunc.spark_udf` so inference runs distributed across the cluster, and
+make the job idempotent (deterministic input window, overwrite/merge by key). Do not
+leave scoring as interactive notebook cells that depend on session state.
+
+```python
+import mlflow
+
+# Runs as a scheduled Job task, not an interactive cell.
+predict_udf = mlflow.pyfunc.spark_udf(
+    spark, model_uri="models:/main.credit.default_scorer@champion", result_type="double")
+
+scoring_df = spark.table("features.credit_scoring_daily").where("as_of_date = '2026-06-20'")
+scored = scoring_df.withColumn("score", predict_udf(*scoring_df.columns))
+(scored.write.mode("overwrite")
+       .option("replaceWhere", "as_of_date = '2026-06-20'")
+       .saveAsTable("scores.credit_default_daily"))
+```
+
+## Reproducibility Checklist
+
+Before you register a model, confirm:
+
+- **Pinned versions** — `pip_requirements`/`conda_env` lists exact versions of every
+  library the model needs (`==`, not `>=`). The cold cluster will not have your session.
+- **Schema enforcement** — an `input_example` + `signature` are logged so MLflow rejects
+  mismatched input columns/types at serve time instead of silently mis-scoring.
+- **No global notebook state** — the model does not read `spark`, widgets, `dbutils`,
+  notebook globals, or relative imports. Test by loading it in a fresh kernel.
+- **Preprocessing is inside the artifact** — the fitted scaler/encoder/imputer is part
+  of the logged `Pipeline` or `pyfunc`, not a separate notebook step.
+- **External files passed as `artifacts`** — lookup tables, thresholds, embeddings are
+  logged with the model, not read from `/dbfs/tmp` paths at predict time.
+- **Loaded by alias** — consumers use `models:/catalog.schema.model@champion` (UC; or a
+  legacy stage `models:/name/Production` on pre-UC registries), never `runs:/<id>/...`.
+
+---
+
+# Quality Standards
+
+## Querying (Part A)
 
 - **Profile before writing**: Run `DESCRIBE DETAIL` and `df.printSchema()` before the first query.
 - **Sample before scale**: Develop on `.sample(0.01)` or `.limit(10_000)`. Run on full data once logic is correct.
@@ -666,7 +768,7 @@ df = df.withColumn("amount_per_day", F.col("total_amount") / F.col("active_days"
 - **No functions on filter columns**: `YEAR(date)` breaks predicate pushdown. Use `date >= '...'` ranges.
 - **Every window has PARTITION BY**: Never run a window function without partitioning on tables >1M rows.
 - **Pre-aggregate before windowing**: Window on daily aggregates (365 rows/customer), not 100M raw rows.
-- **approx_percentile over percentile**: Approximate is sufficient for EDA and feature engineering. 10x faster.
+- **approx_percentile over percentile**: Sketch-based; sufficient for EDA and feature engineering, and avoids a full sort.
 - **No Python UDFs on large tables**: Use built-in functions or `@pandas_udf`. Row-by-row Python is 10–50x slower.
 - **Limit before toPandas()**: Always `.filter()` + `.limit()` + `.select()` before pulling to Pandas.
 - **Unpersist after use**: `.cache()` holds memory cluster-wide. Release with `.unpersist()` when done.
@@ -676,6 +778,16 @@ df = df.withColumn("amount_per_day", F.col("total_amount") / F.col("active_days"
 - **Materialize before MLlib**: `localCheckpoint(eager=True)` a multi-join `modeling_df` before `pipeline.fit()` so the chain isn't recomputed by the later `transform().write()`.
 - **Size shuffle.partitions to the data**: On hundreds of GiB of shuffle, raise `spark.sql.shuffle.partitions` so each partition lands in the 128–256 MiB range — the default 200 spills and risks OOM.
 - **Flag admin issues to DE**: If a query is slow because the table needs OPTIMIZE or ANALYZE TABLE, note it and ask the data engineer — do not attempt admin operations.
+
+## Packaging (Part B)
+
+- **Log preprocessing with the model**: Wrap transforms + estimator in one `Pipeline`/`pyfunc`. Never keep a fitted encoder "in the notebook."
+- **Always log an `input_example` + signature**: This gives schema enforcement at serve time and prevents silent mis-scoring on wrong columns.
+- **Pin every dependency**: `pip_requirements` with `==`, not `>=`. The cold cluster does not have your session's library versions.
+- **No notebook globals in the model**: No `spark`, `dbutils`, widgets, or relative imports inside the logged model. Verify by loading in a fresh kernel.
+- **External files go in `artifacts`**: Lookup tables, thresholds, embeddings travel with the model — not read from `/dbfs/tmp` at predict time.
+- **Consumers load by alias**: `models:/catalog.schema.model@champion` on UC (or a legacy `models:/name/Production` stage pre-UC), never `runs:/<id>/...` — decouple serving from the training run.
+- **Batch inference is a Job, not cells**: Score with `mlflow.pyfunc.spark_udf` in a scheduled, idempotent Databricks Job over a fixed input window.
 
 ---
 
@@ -697,3 +809,6 @@ df = df.withColumn("amount_per_day", F.col("total_amount") / F.col("active_days"
 - Databricks AQE: https://docs.databricks.com/aws/en/optimizations/aqe
 - Delta Lake Time Travel: https://docs.delta.io/latest/delta-batch.html#query-an-older-snapshot-of-a-table-time-travel
 - Databricks Pandas API on Spark: https://docs.databricks.com/aws/en/languages/pandas-api-on-spark
+- MLflow Model Registry: https://mlflow.org/docs/latest/model-registry.html
+- MLflow Models (signatures, input_example, pyfunc): https://mlflow.org/docs/latest/models.html
+- Databricks MLflow batch inference (spark_udf): https://docs.databricks.com/aws/en/machine-learning/model-inference/

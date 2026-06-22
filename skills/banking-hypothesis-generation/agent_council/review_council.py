@@ -1,15 +1,15 @@
 #!/usr/bin/env python3
 """
-Metrics Skill Review Council
-────────────────────────────
-A debate council of agents reads skills/metrics-evaluation/ and critiques the
-documentation's quality, accuracy, and practicality (all in English).
+Banking Hypothesis-Generation Review Council
+────────────────────────────────────────────
+A debate council of agents reads skills/banking-hypothesis-generation/ and
+critiques the documentation for banking accuracy, methodological realism, and
+domain coverage. All agents argue in English.
 
 Run:
-    python skills/metrics-evaluation/agent_council/review_council.py
+    python skills/banking-hypothesis-generation/agent_council/review_council.py
 """
 
-import os
 import sys
 import textwrap
 from pathlib import Path
@@ -27,11 +27,11 @@ DIM     = "\033[2m"
 RESET   = "\033[0m"
 
 AGENT_COLORS = {
-    "Citation Checker":    (RED,    "✗"),
-    "Practitioner":        (YELLOW, "⚙"),
-    "Gap Auditor":         (PURPLE, "◈"),
-    "Defender":            (GREEN,  "✓"),
-    "Chief Editor":        (BLUE,   "★"),
+    "Banking Accuracy Checker": (RED,    "✗"),
+    "Methodology Practitioner": (YELLOW, "⚙"),
+    "Gap Auditor":              (PURPLE, "◈"),
+    "Defender":                 (GREEN,  "✓"),
+    "Chief Editor":             (BLUE,   "★"),
 }
 
 # ─── Read skill files ─────────────────────────────────────────────────────────
@@ -56,103 +56,106 @@ def build_skill_digest(files: dict[str, str]) -> str:
 # ─── Agent definitions ────────────────────────────────────────────────────────
 
 AGENTS = {
-    "Citation Checker": {
+    "Banking Accuracy Checker": {
         "color": RED,
-        "focus_files": ["foundations/metric_interpretation.md", "SKILL.md"],
+        "focus_files": ["SKILL.md", "references/hypothesis_quality_criteria.md"],
         "system": """\
-You are the Citation Checker reviewing a data science skill documentation set.
+You are the Banking Accuracy Checker reviewing a banking data-science skill.
 
-Your role: verify that every threshold, rule, and claim has proper justification.
-Hunt for:
-- Thresholds stated as fact without academic or industry source
-- Citations that exist but whose actual content doesn't support the claim
-- Industry conventions mislabeled as academic findings
-- Missing caveats where the authors overclaim certainty
+Your role: verify that every banking-specific claim is correct and properly
+caveated. Hunt for:
+- PSI / KS / Gini thresholds stated as universal law when they are conventions
+- Regulatory references (SR 11-7, BCBS 239, IFRS 9, Basel) cited loosely or
+  attributed to the wrong obligation
+- Claims about champion-challenger, model validation, or backtesting that an
+  actual model-risk validator would dispute
+- Statistical statements that are technically wrong in the banking context
 
-Be specific: quote the exact phrase that's problematic and explain why.
-Format: short paragraphs, each starting with the file name and line context.
-Under 200 words. Be surgical, not exhaustive.""",
+Be specific: quote the exact phrase and explain why it is wrong or under-caveated.
+Write in English. Under 200 words. Be surgical, not exhaustive.""",
     },
 
-    "Practitioner": {
+    "Methodology Practitioner": {
         "color": YELLOW,
-        "focus_files": ["SKILL.md", "diagnosis/checklist.md", "diagnosis/patterns.md"],
+        "focus_files": ["SKILL.md", "references/experimental_design_patterns.md"],
         "system": """\
-You are a senior ML practitioner reviewing a skill documentation set.
+You are a senior banking data scientist reviewing this skill.
 
-Your role: challenge whether this guidance actually works on a Monday morning
-with a real Databricks notebook, a 3pm deadline, and messy data.
+Your role: challenge whether the hypothesis workflow survives a real Monday
+morning when the KS of a live credit model dropped 4 points over the weekend and
+risk management wants an answer by noon.
 
 Challenge:
-- Steps that sound clean on paper but are ambiguous in practice
-- Missing "what to do when" branches (the checklist may cover clean cases, not real ones)
-- Workflow ordering that doesn't match how real problems unfold
-- Guidance that's correct but unusable without additional context not provided
+- Steps that read cleanly but stall when data is governed, lagged, or restated
+- Missing "what to do when you cannot run the obvious experiment" branches
+  (no holdout, regulatory freeze on the champion, thin recent bads)
+- Hypothesis ordering that does not match how a real investigation unfolds
 
-Quote the specific guidance you're challenging. Propose concretely what's missing.
-Under 200 words.""",
+Quote the specific guidance you are challenging. Propose concretely what is
+missing. Write in English. Under 200 words.""",
     },
 
     "Gap Auditor": {
         "color": PURPLE,
-        "focus_files": ["domains/", "diagnosis/patterns.md", "business/kpi_mapping.md"],
+        "focus_files": ["SKILL.md", "references/literature_search_strategies.md"],
         "system": """\
-You are the Gap Auditor reviewing a data science skill documentation set.
+You are the Gap Auditor reviewing this banking hypothesis-generation skill.
 
-Your role: find what's missing. Not nitpicks — structural gaps that would cause
-a data scientist to fail silently on a real problem.
+Your role: find banking contexts that are named in passing but never actually
+covered. The skill claims to span credit risk, fraud, customer analytics, AML,
+and regulatory validation — check that breadth honestly.
 
-Look for:
-- Domains mentioned in passing but not covered in depth
-- Patterns that exist in practice but aren't in the pattern library
-- Business contexts where the KPI mapping would give wrong guidance
-- The case where all individual steps are correct but the synthesis is incomplete
+Look for structural gaps such as:
+- AML / transaction-monitoring hypotheses (alert tuning, SAR rates) mentioned but
+  not given a workflow
+- IFRS 9 / ECL staging and stress-testing scenarios absent from the patterns
+- Reject inference, population stability under macro shifts, or champion freeze
+  constraints that change how a hypothesis can be tested
 
-Be concrete: "A data scientist evaluating a fraud model would reach step X and
-have no guidance on Y" is useful. "Could be more comprehensive" is not.
-Under 200 words.""",
+Be concrete: "A DS investigating an AML alert surge reaches step X and has no
+guidance on Y" is useful. "Could be more comprehensive" is not.
+Write in English. Under 200 words.""",
     },
 
     "Defender": {
         "color": GREEN,
-        "focus_files": ["SKILL.md", "foundations/metric_interpretation.md"],
+        "focus_files": ["SKILL.md"],
         "system": """\
-You are the Defender in a skill documentation review council.
+You are the Defender in this review council.
 
-You have heard the Citation Checker, Practitioner, and Gap Auditor.
-Your role: rebut their strongest objections with evidence from the documentation itself.
+You have heard the Banking Accuracy Checker, the Methodology Practitioner, and
+the Gap Auditor. Rebut their strongest objections with evidence from the
+documentation itself.
 
 Rules:
-- Concede points that are actually valid — don't defend everything
+- Concede points that are genuinely valid — do not defend everything
 - For each rebuttal, quote the specific text that addresses the criticism
-- Distinguish between "this is genuinely missing" and "this is covered but the
-  reviewer missed it"
-- Point out if a criticism applies to ALL skill docs (a general problem) vs
-  this specific one
+- Distinguish "genuinely missing" from "covered but the reviewer missed it"
+- Flag criticisms that apply to ANY skill doc vs this one specifically
 
-Do NOT dismiss criticism without quoting the counter-evidence.
-Under 180 words.""",
+Do NOT dismiss criticism without quoting counter-evidence.
+Write in English. Under 180 words.""",
     },
 
     "Chief Editor": {
         "color": BLUE,
         "focus_files": ["*"],
         "system": """\
-You are the Chief Editor. You've heard the full debate.
+You are the Chief Editor. You have heard the full debate.
 
 Synthesize into an actionable editorial verdict:
 
-1. KEEP AS-IS (strongest parts — what makes this skill genuinely valuable)
+1. KEEP AS-IS (the strongest parts — what makes this skill genuinely valuable)
 2. REVISE (specific sections that need work — cite exact location)
-3. ADD (concrete missing pieces — be specific about what to write, not just "add more")
+3. ADD (concrete missing pieces — say what to write, not just "add more")
 4. VERDICT: one of — Production-ready / Needs revision / Major gaps
 
-Be direct. No padding. Under 220 words.""",
+Be direct. No padding. Write in English. Under 220 words.""",
     },
 }
 
 DEBATE_ORDER = [
-    ("Round 1 — Attack", ["Citation Checker", "Practitioner", "Gap Auditor"]),
+    ("Round 1 — Attack", ["Banking Accuracy Checker", "Methodology Practitioner", "Gap Auditor"]),
     ("Round 2 — Rebuttal", ["Defender"]),
     ("Synthesis", ["Chief Editor"]),
 ]
@@ -193,7 +196,7 @@ def build_user_prompt(
 def run_debate(skill_dir: Path) -> None:
     client = anthropic.Anthropic()
 
-    print(f"\n{BOLD}{BLUE}Metrics Skill Review Council{RESET}")
+    print(f"\n{BOLD}{BLUE}Banking Hypothesis-Generation Review Council{RESET}")
     print(f"{DIM}Reading: {skill_dir}{RESET}")
 
     files = load_skill_content(skill_dir)
@@ -233,7 +236,7 @@ def run_debate(skill_dir: Path) -> None:
 # ─── Entry point ──────────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
-    skill_dir = Path(__file__).parent.parent  # skills/metrics-evaluation/
+    skill_dir = Path(__file__).parent.parent  # skills/banking-hypothesis-generation/
     if not skill_dir.exists():
         print(f"Error: {skill_dir} not found", file=sys.stderr)
         sys.exit(1)

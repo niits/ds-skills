@@ -112,16 +112,18 @@ fixed unless the panels genuinely live on different ranges.
         panel_grid_minor=element_blank())
 ```
 
-### NYT slide theme
+### Slide theme recipe
 
-The shared NYT style is available for plotnine. Add `theme_nyt()` to any ggplot
-for slide-first, decluttered defaults (matching the matplotlib/Plotly NYT styling):
+Use an explicit built-in plotnine recipe; there is no shared `theme_nyt()` module:
 
 ```python
-from shared.nyt_theme import theme_nyt   # ../shared/nyt_theme.py
+from plotnine import theme_minimal, theme, element_blank, element_text
 (ggplot(df, aes("month", "default_rate"))
  + geom_line(size=1.2)
- + theme_nyt(base_size=15))
+ + theme_minimal(base_size=15)
+ + theme(figure_size=(13.333, 7.5),
+         panel_grid_minor=element_blank(),
+         plot_title=element_text(ha="left", weight="bold")))
 ```
 
 ---

@@ -37,15 +37,18 @@ Model goal: maximize SQL conversion rate within the MQL → SQL handoff budget.
 
 ### Break-Even Precision for Lead Scoring
 ```
-SDR cost per lead worked = SDR_salary / (leads_per_day × working_days)
-  e.g., $80k/year SDR, works 50 leads/week → $80k / (50×50) = $32/lead
+SDR cost per lead worked = annual_SDR_cost / (leads_per_week × working_weeks_per_year)
+  e.g., $80k/year SDR, works 50 leads/week for 50 weeks → $80k / (50×50) = $32/lead
 
-Revenue per closed deal = ACV
-Conversion rate of worked lead = historical MQL→SQL→Won rate = r
+Define the positive label before writing the value equation:
+  If positive = Won:
+    P_breakeven = SDR_cost_per_lead / contribution_margin_per_win
+  If positive = SQL:
+    P_breakeven = SDR_cost_per_lead /
+                  (P(win | SQL) × contribution_margin_per_win)
 
-Break-even precision = SDR_cost_per_lead / (ACV × r)
-  e.g., ACV=$10k, r=5% → P_breakeven = $32 / ($10k × 0.05) = 6.4%
-  Any model with Precision@SDR_capacity > 6.4% is ROI-positive vs random
+Do not multiply won-deal precision by the same end-to-end conversion probability a
+second time. Compare expected profit with the current assignment policy, not only random.
 ```
 
 ---
@@ -70,7 +73,8 @@ Break-even precision = SDR_cost_per_lead / (ACV × r)
 ### Revenue-Weighted Precision@k
 If deal sizes vary significantly:
 ```
-Revenue_weighted_precision@k = Σ(ACV_i for converted leads in top k) / Σ(expected_ACV × k)
+Revenue@k = Σ(realized contribution margin from won leads in top k)
+Expected_profit@k = Σ(P(win_i) × expected_margin_i - work_cost_i)
 ```
 Catching a $100k deal is worth 10× a $10k deal.
 
@@ -85,21 +89,22 @@ Sales teams only call leads they were given — which in most companies are eith
 (a) all leads (if no prior model), or
 (b) leads above the previous model's threshold (if a model existed)
 
-If (b): **you will never observe labels for leads below the old threshold.**
-A lead that would have converted, but was never called, is labeled as "not converted."
-Your training data systematically underestimates the quality of low-scored leads.
+If (b), determine whether outcomes below the threshold are unobserved, action-dependent,
+or still visible through self-service conversion. Never coerce missing outcomes to negatives.
 
-**Detection**: Check if conversion rate drops sharply at the old model's threshold.
-If yes → the drop is at least partially selection bias, not true quality difference.
+**Warning signal**: a conversion discontinuity at the old threshold can reflect
+underlying risk, treatment assignment, treatment effect, or all three. It does not
+identify selection bias by itself; use randomized exploration or a justified causal design.
 
 **Mitigations**:
 - Enforce random exploration: sales must work a random sample of low-scored leads (size depends on statistical power needed and business feasibility)
-- Use proxy labels: website behavior, email engagement, content downloads as weak labels
+- Engagement proxies define a different, exposure-biased target; evaluate them separately rather than treating them as conversion-label repair
 - Causal estimation: use historical A/B tests on score thresholds if available
 
 ### Problem 2: Survivorship / Temporal Bias
 - Labels require a full sales cycle to observe (often 30–180 days)
-- Short evaluation periods will show inflated precision (only fast-close deals are labeled)
+- Incomplete cohorts have censored outcomes. Bias direction depends on whether unresolved
+  outcomes are treated as negatives or excluded and on close-time dependence.
 - Model trained on fast-closing deals may score differently than slow-moving enterprise deals
 
 **Always ask**: What is the label observation window? Does it cover the full sales cycle?
@@ -132,7 +137,8 @@ Scoring a day-old lead with behavioral features designed for 30-day-old leads �
 ### Step 2: Time-Based Split — Mandatory
 - Train on leads entered before date T
 - Test on leads entered after T with outcomes observed
-- Never random split — it leaks behavioral features across time
+- Use chronological OOT evaluation for future deployment and group repeated accounts/people.
+  Perform model selection within development data and preserve a final untouched test set.
 
 ### Step 3: Compute Primary Metrics
 ```

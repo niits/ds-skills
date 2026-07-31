@@ -10,7 +10,7 @@ separates two classes. They do **not** apply directly to regression or multiclas
 | Binary (default here) | WoE → IV |
 | Multiclass | One-vs-rest IV per class, or mutual information |
 | Regression | Correlation ratio (η), mutual information, or binned target-mean monotonicity |
-| Ranking / recsys relevance | Treat graded relevance as binary at a cutoff, or use rank-IC (Spearman of feature vs label) |
+| Ranking / recsys relevance | Use per-query ranking-loss/metric ablation; binary cutoffs or rank-IC are diagnostics only |
 
 The rest of this file assumes **binary**.
 
@@ -20,13 +20,15 @@ The rest of this file assumes **binary**.
 
 There are two distinct WoE/IV computations and they are NOT interchangeable:
 
-- **Quick quantile-bin screen** (below) — fast, for the Phase 4 *filter* across many
-  candidates. Uses equal-frequency bins + Laplace smoothing as a guard. The smoothing
+- **Quick quantile-bin screen** (below) — fast and numeric-only, for the Phase 4
+  *filter* across many candidates. Fit equal-frequency edges on train and apply the
+  frozen edges elsewhere. Use explicit category bins for categorical features. Laplace smoothing
   keeps empty bins finite but **biases IV slightly downward** for sparse bins, so this
   is a *screening* number, not a final scorecard IV.
 - **Monotonic / optimal supervised binning** (scorecard mode, see below) — the
-  *authoritative* method for credit. It merges bins to a minimum size and enforces
-  monotonic event-rate, so zero-event bins never arise and no smoothing is needed.
+  *authoritative* method for credit. Configure minimum total, event, and non-event
+  counts and the institution's monotonicity policy; total bin size alone does not
+  prevent pure bins.
   Use a library binner (e.g. `optbinning.OptimalBinning`) — a validator will expect
   IV computed this way, not on smoothed quantile bins.
 
@@ -46,10 +48,21 @@ def woe_iv(df: pd.DataFrame, feature: str, label: str,
     scorecard IV. It FLAGS unreliable bins (g['reliable']); it does not merge them.
     For the authoritative number use monotonic/optimal binning (below).
     """
+    if n_bins < 2 or smoothing <= 0:
+        raise ValueError("n_bins must be >= 2 and smoothing must be positive")
     s = df[[feature, label]].copy()
+    if s.empty or s[label].isna().any() or set(s[label].unique()) != {0, 1}:
+        raise ValueError("label must be non-null, binary, and contain both classes")
+    if not pd.api.types.is_numeric_dtype(s[feature]):
+        raise TypeError("quick quantile IV requires a numeric feature")
+    non_null = s[feature].dropna()
+    if np.isinf(non_null).any() or non_null.nunique() < 2:
+        raise ValueError("feature IV is NOT_EVALUABLE: need two finite distinct values")
 
     # (1) quantile bins; duplicates='drop' handles features with many ties / zeros
     s["bin"] = pd.qcut(s[feature], q=n_bins, duplicates="drop")
+    if s.loc[s[feature].notna(), "bin"].nunique() < 2:
+        raise ValueError("feature IV is NOT_EVALUABLE: fewer than two observed bins")
     # NaNs form their own bin (do NOT silently drop them - missingness can be signal)
     s["bin"] = s["bin"].cat.add_categories(["__NULL__"]).fillna("__NULL__")
 
@@ -69,9 +82,17 @@ def woe_iv(df: pd.DataFrame, feature: str, label: str,
 
     iv = g["iv_part"].sum()
     # (3) flag unreliable bins
-    g["reliable"] = g["events"] >= min_events
+    g["reliable"] = ((g["events"] >= min_events) &
+                     (g["nonevents"] >= min_events))
     return iv, g
 ```
+
+This compact function demonstrates the arithmetic, not the full fit/apply API. In an
+evaluation pipeline, persist the train-derived edges, missing bucket, category pooling,
+and out-of-range/unseen rules; apply them unchanged to validation, development-period
+stability slices, OOT, and serving. If fewer than two usable non-missing bins remain or
+either class minimum cannot be met after merging, report IV as `NOT_EVALUABLE` rather
+than applying threshold bands to an unstable number.
 
 ### Why each fix matters
 
@@ -83,12 +104,13 @@ def woe_iv(df: pd.DataFrame, feature: str, label: str,
 2. **Laplace smoothing** — a bin with 0 events gives `WoE = log(0) = -inf` and an
    infinite IV contribution. Smoothing (`+0.5`) keeps it finite and bounded. Never
    report an IV computed without handling empty bins; it is meaningless. **But** the
-   right fix in scorecard mode is to *not have* empty bins: merge to a minimum bin
-   size (monotonic/optimal binning) so smoothing is unnecessary. Smoothing is the
+    right fix in scorecard mode is to merge until predeclared total, event, and
+    non-event minima are met. Smoothing is the
    pragmatic guard for the *screening* path only, and it nudges IV down on sparse bins.
 
 3. **Min event count per bin** — with a rare positive class (say 2% event rate),
-   10 bins leave ~0.2% of events per bin → `event_rate` bounces around from noise.
+   10 bins contain roughly 10% of events per bin under uniform allocation (about 0.2%
+   of all rows at 2% prevalence) → `event_rate` can bounce around from noise.
    *Before* calling a feature "non-monotonic", check `reliable`. If most bins are
    unreliable, **re-bin with fewer bins** (5, or event-count-based bins) rather than
    concluding the relationship is non-linear. Note the `min_events=5` default only
@@ -105,19 +127,22 @@ Consequences:
 - Equal-frequency bins put too few events per bin → unstable WoE.
 - Prefer **monotonic binning with a minimum event-count constraint** per bin
   (merge adjacent bins until each has ≥ `min_events`).
-- Do **not** rebalance/oversample *before* computing IV — it inflates apparent signal.
-  Compute IV on the natural distribution; resample only for model fitting if needed.
+- Compute IV on the natural distribution. Synthetic, bin-dependent, or otherwise
+  distribution-altering resampling can distort IV; exact random duplication does not
+  inherently change class-conditional distributions but is unnecessary for this screen.
 
 ---
 
 ## Monotonic supervised binning (scorecard mode)
 
-In **scorecard mode** features enter the model as WoE, and regulators expect a
-**monotonic** relationship (more of X → monotonically more/less risk). Use a
-supervised binning that enforces monotonic event-rate across bins (e.g. an
+In **scorecard mode** features enter the model as WoE. Monotonicity is a common
+governance and stability policy, not a universal legal requirement. When institutional
+policy or domain reasoning requires it, use supervised binning that enforces monotonic event-rate across bins (e.g. an
 isotonic / tree-based binner such as `optbinning`'s `OptimalBinning`, or a manual
 merge-until-monotonic routine). A non-monotonic raw feature can still be usable if
-it bins into a monotonic WoE transform — but document the transform.
+it bins into a monotonic WoE transform. When governance permits, document an exception
+for a defensible non-monotonic relationship rather than forcing a misleading transform.
+Fit all supervised binning on train only.
 
 In **GBM mode** you do not need monotonic binning; trees learn splits. Keep raw
 values. (Optionally apply monotone constraints in the booster for explainability.)

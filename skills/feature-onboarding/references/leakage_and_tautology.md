@@ -15,29 +15,31 @@ in production. The first is the one teams underweight.
 
 ## 6a. Temporal / point-in-time leakage — the common killer
 
-The feature snapshot at cutoff `T` must be computable using **only data that existed
-at or before T**. Violations are usually subtle and pass every correlation test.
+The feature snapshot at cutoff `T` must be computable using only data available under
+the declared cutoff convention. Batch snapshots may use a finalized closed period;
+event-driven systems normally require records to precede the scoring transaction.
 
 ### Draw the timeline, every time
 
 ```
-   feature inputs        cutoff        embargo        label window
-   ───────────────►        T        ──── g ────►      [T+g , T+g+h]
-   (data <= T only)                                  (outcome observed here)
+   feature inputs        cutoff          gap          label window
+   ───────────────►        T        ──── g ────►      (T+g , T+g+h]
+   (eligible at T only)                              (outcome observed here)
 ```
 
 - **Cutoff `T`** — when the score would be produced in production.
-- **Embargo `g`** — a deliberate gap. In credit, the outcome (e.g. 90+ days past due)
-  needs time to materialize; in lead scoring the conversion happens days/weeks later.
-  Without an embargo, features computed "at T" can quietly include the very early
-  part of the outcome.
-- **Label window `[T+g, T+g+h]`** — where the outcome is observed. Nothing from this
+- **Gap `g`** — optional and justified by the estimand, operational latency, or data
+  latency. Outcome maturation determines when labels are complete; it does not by
+  itself require delaying the start of the outcome window.
+- **Label window `(T+g, T+g+h]` by default** — where the outcome is observed. A
+  different non-overlapping convention requires a stable event-sequence rule. Nothing from this
   window may touch the feature.
 
 ### Leak sources to check explicitly
 
-1. **Future rows.** Any aggregation that accidentally includes rows with
-   `event_date > T`. Filter the source to `<= T` **before** aggregating, not after.
+1. **Future rows.** Any aggregation that violates the ledger's declared boundary.
+   Apply the cutoff predicate **before** aggregating: normally `< T` for event-driven
+   scoring, or `<= T` only for a finalized closed-period convention.
 2. **Late-arriving / restated data.** A row *dated* `T` but *written* after `T`
    (back-dated corrections, restatements, slowly-updated dimensions). If your table
    has an `as_of` / ingestion timestamp distinct from the business date, filter on
@@ -59,16 +61,20 @@ column on the current row will *not* tell you what was knowable at T. Concretely
 - **Reconstruct "as of T" explicitly**, don't join to the current table:
 
 ```python
-# Per-row AS-OF (point-in-time) join. Each population row carries its OWN cutoff
-# (`cutoff_date`); for each, take the latest dimension row effective at/before it.
+# Per-row bitemporal AS-OF join. Each scoring row has a stable unique key and cutoff.
 # A single global scalar cutoff gives a FIXED snapshot, not an as-of join -- wrong for
 # multi-cutoff training sets and for recsys (every interaction has its own timestamp).
-cand = (population.join(dim, "entity_id")                       # inequality / range join
-        .filter(F.col("effective_date") <= F.col("cutoff_date")))
-w = (Window.partitionBy("entity_id", "cutoff_date")
-        .orderBy(F.col("effective_date").desc(),
-                 F.col("commit_version").desc()))               # explicit tiebreaker ->
-features = (cand.withColumn("rn", F.row_number().over(w))       # deterministic (Phase 11)
+# `eligible_at_cutoff` implements the ledger's declared open/closed boundary. Use
+# strict `< cutoff_ts` for event-driven scoring unless a sequence key proves ordering.
+join_ok = ((population.entity_id == dim.entity_id) &
+           eligible_at_cutoff(dim.effective_ts, population.cutoff_ts) &
+           eligible_at_cutoff(dim.recorded_ts, population.cutoff_ts))
+cand = population.join(dim, join_ok, "left")
+w = (Window.partitionBy("population_row_id")
+        .orderBy(F.col("effective_ts").desc(),
+                 F.col("recorded_ts").desc(),
+                 F.col("source_row_id").desc()))
+features = (cand.withColumn("rn", F.row_number().over(w))
                 .filter("rn = 1").drop("rn"))
 # Range joins are costly: filter `population` to the needed entities/time span first,
 # and lean on Databricks range-join optimization. For tight latency, Delta/feature-store
@@ -77,11 +83,10 @@ features = (cand.withColumn("rn", F.row_number().over(w))       # deterministic 
 
 - If the source is SCD-1 (overwritten), Delta **time travel** (`VERSION AS OF` /
   `TIMESTAMP AS OF`) or **Change Data Feed** is a **last resort, not a co-equal option**:
-  - Time travel is bounded by `delta.logRetentionDuration` and
-    `deletedFileRetentionDuration` (**default 30 days**), and **`VACUUM` permanently
-    deletes** the old files. Training on a 12-month label horizon against a table that
-    retains 30 days means the as-of reconstruction **silently falls back to current
-    state** — reintroducing the leak.
+  - Time travel is bounded by separately configured log and deleted-file retention.
+    Verify actual table properties rather than assuming one default, and test that all
+    required historical versions remain readable. `VACUUM` can permanently delete old
+    files. Missing history must fail closed; never substitute current state.
   - CDF must be **enabled before** the writes you want to read; it cannot reconstruct
     history retroactively.
   - **The real fix is an append-only / SCD-2 snapshot** (preferred above). Treat
@@ -103,16 +108,17 @@ not a statistic.
 
 ## 6b. Definitional tautology
 
-Here the feature is point-in-time clean but measures the **same underlying quantity**
-the label is defined on.
+Here the feature mechanically contains, reconstructs, or overlaps the realized
+label-window quantity. A pre-cutoff history of the same kind of business measure is
+not automatically tautological.
 
 ### Three questions
 
 1. **What defines the label?** Which metric, which threshold, which horizon?
    (e.g. "default = days-past-due ≥ 90 within 12 months").
 2. **Does the feature directly measure that metric?**
-   - feature ≈ `Δ(metric that defines the label)` → **tautological**.
-   - feature = a derived/adjusted variant of that metric → **needs verification**.
+   - feature uses the realized label-window metric → **tautological**.
+   - feature uses only pre-cutoff history of that metric → potentially valid; verify timing and intended use.
 3. **Causal direction:**
 
 | Relationship | Verdict |
@@ -132,9 +138,9 @@ r = df[suspect_feature].corr(df[label_metric_proxy])   # Pearson or Spearman
 
 | `|r|` vs label proxy | Conclusion |
 |---|---|
-| ≥ 0.8 | Essentially a proxy for the label → drop, or document with extreme care |
+| ≥ 0.8 | Strong investigation trigger; inspect lineage, timing, and formula overlap |
 | [0.3, 0.8) | Investigate: mechanical (drop) vs behavioral (may keep) |
-| < 0.3 | **Not flagged** by this test → keep — but see caveat |
+| < 0.3 | Not flagged by this test; continue lineage, timing, and formula-overlap review |
 
 > **Caveat — these are screening bands, not decision boundaries.** A low `|r|` does
 > **not prove** a feature is non-tautological: the relationship may be non-linear (try
@@ -155,9 +161,9 @@ you don't need a model). This is exactly why any IV > 0.5 routes back to this ch
 ## Quick audit checklist
 
 - [ ] Timeline drawn: cutoff, embargo, label window explicit.
-- [ ] Source filtered to `business_date <= T` **and** `ingested_at <= T`.
+- [ ] Historical values are reconstructable as known at each cutoff; both effective/event time and recorded/available time satisfy the declared boundary.
 - [ ] No post-outcome columns in the feature set.
 - [ ] Dimensions joined *as of T*, not "current".
 - [ ] Label definition written down (metric + threshold + horizon).
 - [ ] Each high-IV feature correlated against a label-metric proxy.
-- [ ] Any `|r| > 0.8` vs proxy resolved before Go/No-Go.
+- [ ] Correlation flags are resolved through lineage and formula review before Go/No-Go; no threshold independently passes or fails a feature.

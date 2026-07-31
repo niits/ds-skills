@@ -1,11 +1,17 @@
 # Domain: Extending the backbone to Recommendation Systems
 
-> **Status: design roadmap, not a turnkey extension.** This file maps *how* the
+> **Status: unsupported design roadmap, not a turnkey extension.** This file maps *how* the
 > backbone transfers to recsys and where it breaks — it does **not** yet provide the
 > ranking-loss feature-evaluation machinery (NDCG-based lift, graded-relevance IV) a
 > production recommender needs. Treat it as the plan to follow when recsys becomes a
 > real target, and add a dedicated `references/` file at that point. Until then, the
 > binary lead/credit backbone is the supported path.
+
+Future support also requires explicit serving-query and candidate-generator semantics,
+logged exposure/position policy and propensities, negative-sampling rules, per-query
+ranking evaluation on frozen candidate sets, and online or counterfactual policy
+evaluation. Do not treat unshown items as negatives or global IV/rank correlation as a
+ranking-feature decision rule.
 
 The 12-phase backbone was written for entity-level binary scoring (one row per
 `entity × period`). Recsys differs in granularity and label structure, but the
@@ -90,9 +96,8 @@ routinely overstate online performance because of feedback loops and the biases 
 
 - Verify source semantics with formula checks (Phase 1).
 - Name by observed behavior, not assumed meaning (Phase 2).
-- Filter → incremental-lift decision, not univariate screen alone (Phase 4–5).
-  IV/WoE still work if you binarize relevance at a cutoff, or use rank-IC for graded
-  labels (`references/predictive_power.md`).
+- The filter-to-lift discipline carries over, but global IV, binarized relevance, and
+  rank-IC are diagnostics only; they cannot decide ranking-feature retention.
 - Stability/drift monitoring (Phase 8) — arguably *more* important under feedback loops.
 - Single-read / persist-one-intermediate engineering discipline (Phase 3, 10).
 

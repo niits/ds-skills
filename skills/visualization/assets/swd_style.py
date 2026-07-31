@@ -5,11 +5,10 @@ Upload to DBFS and import:
     import sys
     sys.path.insert(0, '/dbfs/FileStore/ds-skills/visualization/assets')
     from swd_style import declutter, apply_swd_palette, annotate_insight, SWD
-    from swd_style import risk_colormap, psi_status, fmt_pct, fmt_bps
+    from swd_style import insight_title, label_bars, highlight_region, fmt_pct
 
-General helpers : declutter, apply_swd_palette, annotate_insight,
-                  insight_title, label_bars, highlight_region
-Domain helpers  : risk_colormap, psi_status, fmt_pct, fmt_bps, waterfall_colors
+Functions: declutter, apply_swd_palette, annotate_insight,
+           insight_title, label_bars, highlight_region, fmt_pct
 """
 
 import matplotlib.pyplot as plt
@@ -23,13 +22,16 @@ import numpy as np
 
 class SWD:
     """Storytelling with Data color system."""
-    ACCENT       = '#E8664A'   # coral — the ONE thing that matters
-    ACCENT_BLUE  = '#1A77B5'   # blue — second emphasis (use sparingly)
-    ACCENT_GREEN = '#27AE60'   # green — positive outcome / goal achieved
-    ACCENT_RED   = '#C0392B'   # red — negative / loss / critical (financial contexts)
+    ACCENT       = '#C0392B'   # red — the ONE thing that matters (contrast-verified: 5.44:1
+                                # vs white, 3.39:1 vs GRAY_LIGHT, clears WCAG 3:1 non-text minimum)
+
+    # Positive/negative pair: never use red+green as the sole differentiator
+    # (~8% of men can't reliably distinguish them). This pair is colorblind-safe.
+    ACCENT_POSITIVE = '#0072B2'  # blue (Okabe-Ito) — goal achieved, up vs target only
+    ACCENT_NEGATIVE = '#D55E00'  # vermillion (Okabe-Ito) — financial loss, error states only
 
     GRAY_LIGHT   = '#CCCCCC'   # supporting / context data
-    GRAY_MED     = '#888888'   # secondary labels and annotations
+    GRAY_MED     = '#767676'   # secondary labels and annotations (4.5:1 on white)
     GRAY_DARK    = '#444444'   # primary body text
     NEAR_BLACK   = '#222222'   # chart titles
 
@@ -113,6 +115,7 @@ def apply_swd_palette(values: list,
     -------
     List of color strings, one per value.
     """
+    values = list(values)
     accent = accent_color or SWD.ACCENT
     base   = base_color   or SWD.GRAY_LIGHT
 
@@ -121,6 +124,9 @@ def apply_swd_palette(values: list,
 
     if isinstance(highlight_indices, int):
         highlight_indices = [highlight_indices]
+    invalid = [i for i in highlight_indices if not 0 <= i < len(values)]
+    if invalid:
+        raise IndexError(f"highlight indices out of range: {invalid}")
 
     return [accent if i in highlight_indices else base
             for i in range(len(values))]
@@ -159,7 +165,8 @@ def annotate_insight(ax,
     ax.annotate(
         text=text,
         xy=(x, y),
-        xytext=(x + offset[0], y + offset[1]),
+        xytext=offset,
+        textcoords='offset points',
         arrowprops=arrow_props,
         fontsize=fontsize,
         color=c,
@@ -188,37 +195,40 @@ def insight_title(ax, title: str, fontsize: int = 11) -> None:
 # ---------------------------------------------------------------------------
 
 def label_bars(ax, bars, values, fmt='{:.0f}', offset_frac=0.02,
-               highlight_indices=None, fontsize=9):
+               highlight_indices=None, fontsize=9, orientation=None):
     """
     Add direct value labels above / beside each bar.
 
-    Works for both vertical (ax.bar) and horizontal (ax.barh) bars.
+    Works for both vertical (ax.bar) and horizontal (ax.barh) BarContainers.
     """
     if highlight_indices is None:
         highlight_indices = []
     if isinstance(highlight_indices, int):
         highlight_indices = [highlight_indices]
 
-    max_val = max(abs(v) for v in values) if values else 1
+    values = list(values)
+    orientation = orientation or getattr(bars, 'orientation', None)
+    if orientation not in {'vertical', 'horizontal'}:
+        raise ValueError("orientation must be 'vertical' or 'horizontal'")
+    max_val = max((abs(v) for v in values), default=1) or 1
     offset  = max_val * offset_frac
 
     for i, (bar, val) in enumerate(zip(bars, values)):
-        color  = SWD.ACCENT if i in highlight_indices else SWD.GRAY_MED
+        color  = SWD.GRAY_DARK
         weight = 'bold'   if i in highlight_indices else 'normal'
         label  = fmt.format(val)
 
-        # Detect orientation
-        if bar.get_width() > bar.get_height() * 2:
-            # Horizontal bar
-            ax.text(bar.get_width() + offset,
+        if orientation == 'horizontal':
+            x = bar.get_width() + (offset if val >= 0 else -offset)
+            ax.text(x,
                     bar.get_y() + bar.get_height() / 2,
-                    label, va='center', ha='left',
+                    label, va='center', ha='left' if val >= 0 else 'right',
                     fontsize=fontsize, color=color, fontweight=weight)
         else:
-            # Vertical bar
+            y = bar.get_height() + (offset if val >= 0 else -offset)
             ax.text(bar.get_x() + bar.get_width() / 2,
-                    bar.get_height() + offset,
-                    label, va='bottom', ha='center',
+                    y,
+                    label, va='bottom' if val >= 0 else 'top', ha='center',
                     fontsize=fontsize, color=color, fontweight=weight)
 
 
@@ -232,75 +242,16 @@ def highlight_region(ax, x_start, x_end, label: str = '',
     c = color or SWD.ACCENT
     ax.axvspan(x_start, x_end, alpha=alpha, color=c, zorder=0)
     if label:
-        mid = (x_start + x_end) / 2
-        ymax = ax.get_ylim()[1]
-        ax.text(mid, ymax * 0.97, label,
+        mid = x_start + (x_end - x_start) / 2
+        ax.text(mid, 0.97, label, transform=ax.get_xaxis_transform(),
                 ha='center', va='top', fontsize=8,
                 color=c, style='italic')
 
 
 # ---------------------------------------------------------------------------
-# Domain helpers — credit and risk analytics
+# Formatting helper
 # ---------------------------------------------------------------------------
-
-def risk_colormap(kind: str = 'rate'):
-    """
-    Return a (cmap, norm) pair suitable for risk heatmaps.
-
-    kind='rate'     → 0–100% range, red=high risk  (RdYlGn_r)
-    kind='change'   → diverging around 0,            (RdBu_r)
-    kind='volume'   → sequential 0→max,              (YlOrRd)
-
-    Usage:
-        cmap, norm = risk_colormap('rate')
-        sns.heatmap(df, cmap=cmap, vmin=0, vmax=100)
-    """
-    import matplotlib.colors as mcolors
-
-    if kind == 'rate':
-        return 'RdYlGn_r', None
-    elif kind == 'change':
-        return 'RdBu_r', None
-    elif kind == 'volume':
-        return 'YlOrRd', None
-    else:
-        raise ValueError(f"kind must be 'rate', 'change', or 'volume', got {kind!r}")
-
-
-def psi_status(psi_value: float) -> tuple:
-    """
-    Return (color, label) for a PSI value using industry convention.
-
-      < 0.10        → stable
-      0.10 – 0.25   → moderate shift
-      > 0.25        → significant shift
-
-    Returns
-    -------
-    (color_hex: str, label: str)
-    """
-    if psi_value < 0.10:
-        return SWD.ACCENT_GREEN, 'Stable'
-    elif psi_value < 0.25:
-        return '#F39C12', 'Moderate shift — monitor'
-    else:
-        return SWD.ACCENT, 'Significant shift — investigate'
-
 
 def fmt_pct(value: float, decimals: int = 1) -> str:
     """Format a float as a percentage string. fmt_pct(0.1234) → '12.3%'"""
     return f'{value * 100:.{decimals}f}%'
-
-
-def fmt_bps(value: float) -> str:
-    """Format a float as basis points. fmt_bps(0.0025) → '25 bps'"""
-    return f'{value * 10000:.0f} bps'
-
-
-def waterfall_colors(shap_values) -> list:
-    """
-    Return color list for a SHAP waterfall chart.
-    Positive SHAP (increases prediction) → accent coral.
-    Negative SHAP (decreases prediction) → accent blue.
-    """
-    return [SWD.ACCENT if v > 0 else SWD.ACCENT_BLUE for v in shap_values]

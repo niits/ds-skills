@@ -1,32 +1,37 @@
 # Metric Interpretation Guide
 
-> **Convention key used throughout this file:**
-> - `[Academic]` — threshold from peer-reviewed paper or textbook with citation
+> **Convention key:**
+> - `[Academic]` — threshold from a peer-reviewed paper or textbook
 > - `[Industry]` — banking/ML industry convention, no academic backing; use with judgment
 > - `[Definitional]` — mathematically derived, not an empirical judgment
+>
+> Full citation details (authors, venues, quotes): `foundations/citations.md` — reference only, not read during normal skill use.
 
 ---
 
-## Average Precision (AP / AUC-PR)
+## Average Precision and PR-AUC
 
-### Baseline — The Only Reliable Reference Point `[Definitional]`
+### Definitions and No-Skill Reference
 
-AP of a random classifier = positive rate (class prevalence).
+Average precision is the step-weighted summary of a binary precision-recall curve.
+Trapezoidal PR-AUC uses different interpolation and is not generally equal to AP.
+Classification mAP averages AP across classes; ranking MAP averages per-query/user AP.
+Always state positive class, averaging, interpolation, and implementation.
 
-> Source: Davis & Goadrich (2006), "The Relationship Between Precision-Recall and ROC Curves", ICML.
-> Also confirmed: Saito & Rehmsmeier (2015), "The Precision-Recall Plot Is More Informative than the ROC Plot", PLOS ONE.
+Expected AP under random ranking is approximately class prevalence, subject to finite
+candidate sets and tie handling. It is a reference expectation, not a floor.
 
-There is **no universal "good AP" threshold** — the interpretation always depends on the positive rate.
-The only valid primary benchmark is: **Lift = AP_model / positive_rate**.
+There is **no universal "good AP" threshold** — interpretation always depends on the positive rate.
+A useful no-skill comparison is **Lift = AP_model / positive_rate**, alongside the
+current policy or prior model.
 
 ### How to Assess Lift
 No verified threshold exists for "good" lift. Compare against:
-1. The random baseline (= positive rate) — floor
+1. The random-ranking expectation (approximately positive rate)
 2. The current heuristic/rule-based system — the real bar
 3. The previous model (if one exists) — improvement bar
 
-A lift > 20x is the trigger threshold for a mandatory leakage check before any other conclusion.
-(The 20x trigger is consistent with Pattern 7.1 in diagnosis/patterns.md. The specific number is directional — no academic source; treat as industry convention.)
+Unusually large lift should increase leakage-review priority, but no fixed lift proves leakage.
 
 ### PR Curve Shape — Red Flags
 - Precision drops to near-baseline at recall > 0.1: model only catches easy positives
@@ -39,16 +44,13 @@ A lift > 20x is the trigger threshold for a mandatory leakage check before any o
 
 ### Interpretation Framework `[Academic]`
 
-> Source: **Hosmer & Lemeshow, "Applied Logistic Regression" (2nd ed., 2000), Chapter 5.**
-> Widely adopted; also referenced in Hanley & McNeil (1982), Radiology, which established the AUC concept.
-
-| AUC | Hosmer & Lemeshow Label | Practical Assessment |
+| AUC | Hosmer & Lemeshow descriptor | Discrimination only; not a shipping threshold |
 |---|---|---|
-| 0.5 | No discrimination | Random — useless |
-| 0.5–0.7 | Poor discrimination | Weak — barely useful |
-| 0.7–0.8 | Acceptable discrimination | May work for low-stakes decisions |
-| 0.8–0.9 | Excellent discrimination | Good |
-| > 0.9 | Outstanding discrimination | Strong — verify no leakage |
+| 0.5 | No discrimination | No rank discrimination |
+| 0.5–0.7 | Poor discrimination | Low discrimination; utility requires policy analysis |
+| 0.7–0.8 | Acceptable discrimination | Moderate discrimination; business utility unproven |
+| 0.8–0.9 | Excellent discrimination | High discrimination; business utility unproven |
+| > 0.9 | Outstanding discrimination | Very high discrimination; verify leakage and utility |
 
 **Nuance on imbalanced data**: AUC-ROC does NOT inflate for imbalanced datasets — a
 constant classifier always gets AUC-ROC = 0.5 regardless of class ratio. The common
@@ -56,15 +58,7 @@ claim that "AUC-ROC is inflated on imbalanced data" is imprecise.
 
 The correct reason to prefer AP on imbalanced data: AUC-ROC summarizes sensitivity
 and specificity but does not capture false discovery rate (precision). AP directly
-measures precision-recall trade-off, which is what matters when positives are rare.
-
-> Richardson et al. (2024), Patterns, Cell Press: "ROC-AUC is only inflated by imbalance
-> in simulations where changing imbalance changes the score distribution" — i.e., AUC-ROC
-> is robust to prevalence changes for fixed classifier performance.
->
-> Saito & Rehmsmeier (2015), PLOS ONE (3,594 citations): PR curve is more informative
-> than ROC for imbalanced data — not because ROC inflates, but because AP captures
-> positive-class performance that ROC's specificity term obscures.
+measures the precision-recall trade-off, which is what matters when positives are rare.
 
 ---
 
@@ -73,19 +67,17 @@ measures precision-recall trade-off, which is what matters when positives are ra
 ### Interpretation `[Industry convention — no traceable academic source]`
 
 The KS statistic measures maximum separation between score CDFs of positives and negatives.
-KS = 0 → no separation. KS = 100 → perfect separation.
+This skill reports `KS% = 100 × max(TPR - FPR)`: 0 means no separation and 100 means
+perfect separation. State score orientation before computing KS/Gini.
 
 | KS | Assessment |
 |---|---|
-| < 20 | Weak model |
-| 20–40 | Acceptable |
-| 40–60 | Good |
-| > 60 | Strong — verify no leakage |
+| < 20 | Conventionally called weak separation |
+| 20–40 | Conventionally called acceptable |
+| 40–60 | Conventionally called good |
+| > 60 | Conventionally called strong separation; verify leakage and utility |
 
-**Source status**: These thresholds appear consistently across banking practice (SAS Institute publications, credit scoring practitioners) but are **not traceable to a specific academic textbook**. Treat as industry rule of thumb.
-
-> Reference for KS concept in credit: Anderson (2007), "The Credit Scoring Toolkit", Oxford University Press.
-> KS maximization as training objective: Yan et al. (2018), "Directly Maximizing the KS Statistic", Computational Statistics & Data Analysis.
+**Source status**: These thresholds appear consistently across banking practice but are **not traceable to a specific academic textbook**. Treat as industry rule of thumb.
 
 **KS ≠ decision threshold**: Banks do not set lending cutoffs using KS. It is a validation metric only; actual thresholds are set by risk appetite and profitability.
 
@@ -99,7 +91,7 @@ Gini = 2 × AUC − 1
 
 This is a mathematical identity, not an approximation. Gini = 0 → random. Gini = 1 → perfect.
 
-### Thresholds `[Industry — derived from Hosmer & Lemeshow via the AUC identity]`
+### Thresholds `[Industry]`
 
 | Gini | Equivalent AUC | Assessment |
 |---|---|---|
@@ -108,9 +100,7 @@ This is a mathematical identity, not an approximation. Gini = 0 → random. Gini
 | 0.6–0.8 | 0.8–0.9 | Good |
 | > 0.8 | > 0.9 | Strong — verify no leakage |
 
-**Source status**: The Gini thresholds themselves are industry convention. However, because Gini = 2×AUC−1, they inherit the Hosmer & Lemeshow academic grounding indirectly.
-
-> Industry reference: Siddiqi (2006), "Credit Risk Scorecards", Wiley. Gini/Somers' D used as primary scorecard validation metric.
+**Source status**: Gini shares AUC's math identity, but its practitioner cutoffs come from Siddiqi-style industry norms, not from Hosmer & Lemeshow — the algebraic link to AUC does not transfer H&L's academic grounding to these specific cutoffs.
 
 ---
 
@@ -120,15 +110,15 @@ This is a mathematical identity, not an approximation. Gini = 0 → random. Gini
 
 | PSI | Assessment |
 |---|---|
-| < 0.1 | Stable — model still valid |
+| < 0.1 | Conventionally called small shift; does not prove model validity |
 | 0.1–0.25 | Moderate shift — investigate |
-| > 0.25 | Significant shift — model likely invalid |
+| > 0.25 | Conventionally called large shift; investigate impact |
 
-**Critical caveat**: These thresholds **have no statistical backing**.
+**Critical caveat**: These thresholds **have no statistical backing** — a peer-reviewed analysis found they are used "without reference to statistical type I or type II error rates" and have "no support or references in the academic world."
 
-> Source: Yurdakul (2018), "Statistical Properties of the Population Stability Index", Journal of Risk Model Validation (peer-reviewed). Explicitly states the 0.1/0.25 thresholds are "used without reference to statistical type I or type II error rates" and "do not have any support or references in the academic world."
-
-**What this means in practice**: PSI is a useful directional signal, but the specific thresholds 0.1 and 0.25 are arbitrary. For rigorous monitoring, supplement PSI with chi-square tests or KS tests on score distributions with proper significance levels.
+**What this means in practice**: PSI is a directional effect-size summary, but fixed
+thresholds are arbitrary. Calibrate alerts from stable history, sample size, dependence,
+multiplicity, and observed outcome/business loss; distribution tests alone do not prove harmful drift.
 
 ---
 
@@ -137,28 +127,20 @@ This is a mathematical identity, not an approximation. Gini = 0 → random. Gini
 - Only meaningful when threshold is chosen on validation set — not default 0.5
 - Always report: which threshold was used, and on which split
 - F1 at 0.5 threshold on imbalanced data is almost always wrong
-
-No verified absolute thresholds exist for F1. Always compare to:
-- F1 of the random baseline at the same threshold
-- F1 of the current heuristic or previous model
-
-There is no universal "good F1" value — it is entirely domain and threshold-dependent.
+- No verified absolute thresholds exist for F1. Compare with explicit always-positive,
+  current-policy, heuristic, and previous-model baselines under the same operating rule;
+  define any randomized-classifier score protocol before using it.
 
 ---
 
 ## RMSE / MAE (Regression)
 
-### Normalized RMSE
+### Mean Baseline
 
-nRMSE = RMSE / std(y_test)
-
-| nRMSE | Assessment | Source |
-|---|---|---|
-| ≥ 1.0 | Worse than predicting the mean — model adds no value | `[Definitional]` RMSE of mean predictor = std(y) |
-| < 1.0 | Better than mean prediction | `[Definitional]` |
-
-No verified thresholds exist for what constitutes "weak", "moderate", or "good" nRMSE below 1.0.
-Compare against: mean-prediction baseline, previous model, and best known benchmark for the task.
+Fit the constant prediction on training targets and evaluate it on the same test rows as
+the model. Compare RMSE directly or report
+`RMSE_model / RMSE_train_mean_baseline`. Dividing by `std(y_test)` equals an oracle
+test-mean comparison only under matching variance conventions and is not the deployable baseline.
 
 Always report MAE alongside RMSE — RMSE is dominated by large errors, MAE is more robust to outliers.
 
@@ -168,33 +150,29 @@ Always report MAE alongside RMSE — RMSE is dominated by large errors, MAE is m
 
 ### Definition and Interpretation `[Academic]`
 
-> Source: **Hyndman & Koehler (2006), "Another Look at Measures of Forecast Accuracy", International Journal of Forecasting, 22(4), 679–688.**
+For seasonal lag `m`, MASE divides mean test absolute error by the mean in-sample
+training error `|y_t - y_{t-m}|`. Both the training scale and evaluation protocol must
+be stated. MASE is undefined when the training scale is zero.
 
-MASE = MAE_model / MAE_naive
-
-Where naive = lag-1 (random walk) forecast on training data.
-
-| MASE | Interpretation |
+| MASE | Interpretation against the training naive scale |
 |---|---|
-| > 1.0 | Worse than naive forecast `[Definitional]` — model adds no value |
-| = 1.0 | Same as naive |
-| < 1.0 | Better than naive |
+| > 1.0 | Test MAE exceeds the in-sample training naive scale |
+| = 1.0 | Test MAE equals that scale |
+| < 1.0 | Test MAE is below that scale |
 
-**What constitutes "good" MASE**: Hyndman & Koehler do not specify thresholds below 1.0. The literature has no consensus on what MASE value is "adequate" vs "good" — it is domain-dependent. The only defensible statement is: **MASE must be < 1.0 to justify using the model at all**. Beyond that, compare to the best known alternative model, not to an arbitrary threshold.
+MASE is scale-free, but it is not a direct test-set comparison with a fitted seasonal
+naive forecast. Score that baseline on the same test rows before claiming the model adds
+value, and compare with the best known alternative rather than an arbitrary quality threshold.
 
 ---
 
 ## NDCG@k (Ranking)
 
-| Guideline | Source |
-|---|---|
-| Always state k — NDCG@10 ≠ NDCG@100 | `[Definitional]` |
-| Beat popularity baseline before claiming value | `[Industry]` |
-| Online A/B test overrides offline NDCG | `[Industry — well established in practice]` |
+- Always state k — NDCG@10 ≠ NDCG@100 `[Definitional]`
+- Beat popularity baseline before claiming value `[Industry]`
+- Online A/B test overrides offline NDCG `[Industry — well established in practice]`
 
-**Source status**: NDCG thresholds are entirely domain and dataset-specific. No universal "good NDCG" exists.
-
-> Original NDCG definition: Järvelin & Kekäläinen (2002), "Cumulated Gain-Based Evaluation of IR Techniques", ACM TOIS.
+NDCG thresholds are entirely domain and dataset-specific. No universal "good NDCG" exists.
 
 ---
 
@@ -203,26 +181,12 @@ Where naive = lag-1 (random walk) forecast on training data.
 - `[Industry]` A well-ranked model (high AUC) can be badly calibrated
 - Required when predicted probabilities drive decisions: credit scoring, pricing, insurance
 - Check: plot mean(actual) vs mean(predicted) in probability decile buckets — should be near diagonal
-- Fix: Platt scaling (logistic regression on scores) or isotonic regression
-
-> Reference on calibration assessment: Niculescu-Mizil & Caruana (2005), "Predicting Good Probabilities with Supervised Learning", ICML.
+- Assess reliability curves, calibration-in-the-large, calibration slope, Brier score,
+  and an explicitly defined calibration error on untouched data. If recalibration is
+  needed, fit Platt/isotonic or another calibrator on separate development data and
+  re-evaluate it on untouched data. Monotone calibration does not improve ranking or
+  the attainable precision-recall curve.
 
 ---
 
-## Source Index
-
-| Source | What It Justifies | Quality Signal |
-|---|---|---|
-| Hosmer & Lemeshow, "Applied Logistic Regression" (2000) | AUC-ROC thresholds (0.7 / 0.8 / 0.9) | Standard textbook, widely adopted |
-| Hanley & McNeil (1982), Radiology | AUC concept and interpretation | Foundational paper |
-| Hyndman & Koehler (2006), Int'l J. of Forecasting | MASE definition and MASE < 1 baseline | Peer-reviewed, widely cited |
-| Davis & Goadrich (2006), ICML | AP/AUPRC baseline = positive rate | 4,071 citations (Semantic Scholar) |
-| Saito & Rehmsmeier (2015), PLOS ONE | AP more informative than AUC for imbalanced data (not that AUC inflates) | 3,594 citations |
-| Richardson et al. (2024), Patterns (Cell Press) | AUC-ROC is robust to class imbalance (doesn't inflate) | Peer-reviewed, Cell Press journal |
-| Yurdakul (2018), J. of Risk Model Validation | PSI thresholds are not statistically justified | Peer-reviewed |
-| Siddiqi (2006/2017), Wiley | Gini/KS in credit scorecard validation | Industry standard textbook |
-| Järvelin & Kekäläinen (2002), ACM TOIS | NDCG definition | Foundational paper |
-| Niculescu-Mizil & Caruana (2005), ICML | Calibration assessment | ICML, top-tier venue |
-| Anderson (2007), Oxford University Press | KS in credit scoring context | Industry reference |
-| Radcliffe (2007) | Qini coefficient, uplift segments (persuadables/sure things/lost causes) | Industry reference, widely adopted |
-| Joachims, Swaminathan & Schnabel (2017), WSDM | IPS for unbiased learning-to-rank | WSDM top-tier venue, foundational |
+Full source list, direct quotes, and citation counts: `foundations/citations.md` (reference only — not part of the normal skill workflow).

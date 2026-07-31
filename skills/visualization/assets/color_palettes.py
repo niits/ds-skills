@@ -28,7 +28,11 @@ OKABE_ITO = {
 OKABE_ITO_LIST = ['#E69F00', '#56B4E9', '#009E73', '#F0E442',
                    '#0072B2', '#D55E00', '#CC79A7', '#000000']
 
-# Wong Palette (Nature Methods)
+# Wong Palette (Nature Methods, 2011) — the same 8 colors as Okabe-Ito, just
+# reordered (black moved to front). Wong's paper is the citation that popularized
+# Okabe & Ito's 2008 palette; it is not a perceptually distinct alternative. Kept
+# here as a named alias for readers who know the "Wong palette" citation, not as a
+# second option to choose between.
 WONG = ['#000000', '#E69F00', '#56B4E9', '#009E73',
         '#F0E442', '#0072B2', '#D55E00', '#CC79A7']
 
@@ -58,54 +62,25 @@ SEQUENTIAL_COLORMAPS = [
     'Purples',   # Single hue
 ]
 
-# Diverging colormaps (for data with meaningful center)
+# Diverging colormaps (for data with meaningful center). Safety verified against
+# RColorBrewer::brewer.pal.info's colorblindlist (mirrors colorbrewer2.org's own
+# "colorblind safe" filter) — all six below are confirmed safe, no exceptions.
+# This list must match references/color-palettes.md's "Colorblind-Safe Diverging Maps"
+# table 1:1 (no CI to catch drift mechanically — update both together).
 DIVERGING_COLORMAPS_SAFE = [
     'RdYlBu',    # Red-Yellow-Blue (reversed is common)
     'RdBu',      # Red-Blue
     'PuOr',      # Purple-Orange (excellent for colorblind)
     'BrBG',      # Brown-Blue-Green (good for colorblind)
-    'PRGn',      # Purple-Green (use with caution)
-    'PiYG',      # Pink-Yellow-Green (use with caution)
+    'PRGn',      # Purple-Green
+    'PiYG',      # Pink-Yellow-Green
 ]
 
 # Diverging colormaps to AVOID (red-green combinations)
 DIVERGING_COLORMAPS_AVOID = [
-    'RdGn',      # Red-Green (problematic!)
     'RdYlGn',    # Red-Yellow-Green (problematic!)
+    'RdGy',      # Red-Gray (problematic!)
 ]
-
-# Fluorophore colors (traditional - use with caution)
-FLUOROPHORES_TRADITIONAL = {
-    'DAPI': '#0000FF',    # Blue
-    'GFP': '#00FF00',     # Green (problematic for colorblind)
-    'RFP': '#FF0000',     # Red
-    'Cy5': '#FF00FF',     # Magenta
-    'YFP': '#FFFF00',     # Yellow
-}
-
-# Fluorophore colors (colorblind-friendly alternatives)
-FLUOROPHORES_ACCESSIBLE = {
-    'Channel1': '#0072B2',  # Blue
-    'Channel2': '#E69F00',  # Orange (instead of green)
-    'Channel3': '#D55E00',  # Vermillion (instead of red)
-    'Channel4': '#CC79A7',  # Magenta
-    'Channel5': '#F0E442',  # Yellow
-}
-
-# Genomics/Bioinformatics
-DNA_BASES = {
-    'A': '#00CC00',  # Green
-    'C': '#0000CC',  # Blue
-    'G': '#FFB300',  # Orange
-    'T': '#CC0000',  # Red
-}
-
-DNA_BASES_ACCESSIBLE = {
-    'A': '#009E73',  # Bluish Green
-    'C': '#0072B2',  # Blue
-    'G': '#E69F00',  # Orange
-    'T': '#D55E00',  # Vermillion
-}
 
 
 def apply_palette(palette_name='okabe_ito'):

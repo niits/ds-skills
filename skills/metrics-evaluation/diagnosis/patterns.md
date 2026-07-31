@@ -15,36 +15,39 @@ Patterns are grouped by the primary symptom observed.
 
 ## Group 1: AUC-ROC and AP Diverge
 
-### Pattern 1.1 — AUC-ROC high, AP low
+### Pattern 1.1 — AUC-ROC high, AP modest relative to prevalence
 ```
-AUC-ROC > 0.85
-AP << positive_rate × 10  (lift < 5x)
+AUC-ROC materially exceeds its baseline
+AP lift and top-of-list precision miss the operating requirement
 ```
-**Diagnosis**: AUC-ROC and AP measure different things. AUC-ROC weights positive and negative class performance equally — when positives are rare, most of the weight goes to correct negative classification. AP measures only the precision-recall tradeoff on the positive class. The gap means the model ranks negatives well but does not rank positives well within the prediction list. (Note: AUC-ROC is not "inflated" — it accurately reflects performance on both classes. The problem is it measures the wrong thing for this use case.)
+**Diagnosis hypothesis**: AUC is the probability that a random positive outranks a
+random negative across the full score range. AP depends on prevalence and top-ranked
+false discoveries. Inspect prevalence, score distributions, partial ROC, and the PR
+operating region before assigning a cause.
 
 **Root causes** (check in order):
 1. Wrong primary metric — AUC-ROC is not appropriate when positive-class ranking is what matters
-2. Model predicts near-zero scores for almost everything — weak signal overall
+2. Poor positive-negative separation in the decision-critical ranking region; assess calibration separately
 3. Evaluation set too small on the positive side — AP estimate is noisy
 
 **Actions**:
 - Switch primary metric to AP / AUC-PR for all further evaluation
 - Plot the PR curve: if precision collapses immediately at low recall, the model has no useful signal at any practical operating point
-- Count true positives in top 1% of predictions vs random expectation (= positive_rate × total) — is the model concentrating positives at the top?
+- Count true positives in top `k` versus random expectation (`positive_rate × k`) — is the model concentrating positives at the top?
 
 ---
 
-### Pattern 1.2 — AUC-ROC low, AP proportionally ok
+### Pattern 1.2 — AUC-ROC modest, AP useful at the operating region
 ```
-AUC-ROC = 0.65–0.72
-AP / positive_rate = 5x–10x lift
+AUC-ROC is modest
+AP / positive_rate shows reproducible lift
 ```
-**Diagnosis**: Model has genuine predictive signal for positives but struggles with the negative side — possibly because negative class is heterogeneous or has overlapping features with positives.
+**Diagnosis hypothesis**: the model may still be useful for a selective top-k policy.
+The metric pair does not identify a "negative-side" failure.
 
 **Actions**:
 - Focus on PR curve, not ROC — the model may be usable at a selective operating point
-- Investigate: are negatives homogeneous? Mixture of easy/hard negatives inflates ROC denominator
-- Try: hard negative mining or cost-sensitive training to improve separation
+- Inspect score distributions and decision-critical segments at the intended operating point
 
 ---
 
@@ -56,7 +59,8 @@ AP_train = 0.60
 AP_val   = 0.35
 AP_test  = 0.18
 ```
-**Diagnosis**: Progressive overfitting. Model memorizes training data, generalizes poorly.
+**Diagnosis hypothesis**: train-to-validation gaps support overfitting; later-test decline
+also requires explicit temporal, population, and label-shift checks.
 
 **Root causes**:
 1. Model too complex relative to training data size (especially positives)
@@ -65,8 +69,8 @@ AP_test  = 0.18
 
 **Actions**:
 - Reduce model complexity: fewer trees, higher min_child_weight, lower max_depth
-- Cross-validate on val set only — never touch test during tuning
-- Check: n_positives in training set. If < 500, the model likely memorized them
+- Perform model selection/CV within training/development data; preserve a final untouched test set
+- Use learning curves and clustered/temporal uncertainty to assess effective support
 
 ---
 
@@ -76,7 +80,8 @@ AP_train = 0.45
 AP_val   = 0.42
 AP_test  = 0.15
 ```
-**Diagnosis**: Distribution shift between (train+val) and test. The model learned patterns that don't exist in the test period.
+**Diagnosis hypothesis**: distribution shift is plausible, but validation contamination,
+test noise, label maturation, and protocol differences can produce the same cliff.
 
 **Root causes**:
 1. Time-based split not used — random split leaks future into training
@@ -85,7 +90,8 @@ AP_test  = 0.15
 
 **Actions**:
 - Confirm split method: must be time-ordered if data is temporal
-- Plot feature distributions: train vs test. Flag any features with Jensen-Shannon divergence > 0.1
+- Plot feature distributions and calibrate drift alerts from stable historical periods,
+  sample size, multiplicity, and business loss; no fixed JS value proves harmful shift
 - Check positive rate: train vs test. If different → population shift, not just model issue
 - Re-train with a time-based split and re-evaluate
 
@@ -96,7 +102,9 @@ AP_test  = 0.15
 AP_val = 0.40 (strong, 15x lift)
 A/B CTR lift = 0% (not significant)
 ```
-**Diagnosis**: Offline-online gap. Model metrics don't translate to business outcome.
+**Diagnosis hypothesis**: compare the online effect estimate and confidence interval
+with the minimum practical effect. A non-significant result may be underpowered rather
+than evidence of zero effect.
 
 **Root causes** (in recommendation/ranking context):
 1. **Feedback loop bias**: training data reflects historical policy, not ground truth preferences
@@ -114,13 +122,15 @@ A/B CTR lift = 0% (not significant)
 
 ## Group 3: Precision and Recall Are Both Low
 
-### Pattern 3.1 — Low precision AND low recall at all thresholds
+### Pattern 3.1 — No threshold provides an acceptable precision-recall trade-off
 ```
 At threshold T1 (high): Precision = 0.60, Recall = 0.05
 At threshold T2 (low): Precision = 0.04, Recall = 0.80
 AP = 0.08 (barely above baseline of 0.022)
 ```
-**Diagnosis**: Model has almost no discrimination. The score is not useful as a ranking signal.
+**Diagnosis hypothesis**: no acceptable operating point has been demonstrated for the
+stated business requirement. The example can still serve a selective policy; stronger
+conclusions require economics and paired uncertainty.
 
 **Root causes**:
 1. Features have very low correlation with target — check univariate feature AUCs
@@ -129,10 +139,10 @@ AP = 0.08 (barely above baseline of 0.022)
 4. Fundamental problem difficulty: the positive class may not be predictable from available features
 
 **Actions**:
-- Run single-feature AUC for every feature. If max single-feature AUC < 0.60, the problem is data, not model.
+- Compare regularized multivariate baselines and ablations under nested/chronological validation.
 - Review label definition: are "positives" actually meaningfully different from negatives in feature space?
-- Try: t-SNE or UMAP on a sample — do positives cluster away from negatives? If not, prediction is fundamentally hard.
-- Escalate to stakeholder: "The signal does not exist in the available features" is a valid conclusion.
+- Use learning curves, permutation tests, or confidence intervals to determine whether
+  held-out lift is distinguishable from noise; visualization is not a performance bound.
 
 ---
 
@@ -142,17 +152,18 @@ Precision@threshold = 0.85
 Recall@threshold = 0.04
 AP = 0.35 (adequate lift)
 ```
-**Diagnosis**: Model has real signal but the operating threshold is set too conservatively. The model is only catching the most obvious positives.
+**Diagnosis hypothesis**: this may be an intentional selective operating point or a
+cost/capacity mismatch; high precision and low recall alone is not a defect.
 
 **Root causes**:
 1. Default threshold (0.5) used — wrong for imbalanced data
-2. Score distribution skewed: predicted probabilities are all very low (calibration issue)
+2. Probability magnitudes are used in decisions and reliability diagnostics show miscalibration
 3. Business chose threshold to maximize precision without checking business impact of missed positives
 
 **Actions**:
 - Plot the PR curve and identify the operating point that meets business requirements
-- Check calibration: what is the mean predicted score? If << positive_rate, model is miscalibrated
-- Apply Platt scaling or isotonic regression, then re-examine score distributions
+- If probability values drive decisions, assess reliability, calibration intercept/slope,
+  and Brier score on untouched data; calibration does not improve ranking
 - Compute FN cost at current recall=0.04 — likely unacceptable
 
 ---
@@ -167,12 +178,12 @@ But: expected precision@review_capacity < break-even precision
 **Diagnosis**: Model has real signal, but at the volume the business can act on (review capacity), the precision is still below break-even.
 
 **Root causes**:
-1. Review capacity is too small relative to the positive rate — economics don't work regardless of model quality
+1. No feasible operating volume produces positive incremental value under the current cost/effect assumptions
 2. Break-even precision is too high (intervention cost > value saved)
 3. Model needs to be more selective — optimize Precision@k directly, not AP
 
 **Actions**:
-- Re-compute break-even precision: cost_per_action / (value_saved × conversion_rate)
+- Re-compute incremental economics using an identified action effect or explicit scenario bounds
 - Simulate: at current model, what is precision at exactly the review capacity? Is it above break-even?
 - If not: either increase capacity, reduce cost per action, or improve model Precision@k specifically
 - Consider: is AP the right training objective? If business needs precision@200, optimize that directly.
@@ -194,20 +205,22 @@ Production CTR / conversion: flat or declining
 
 **Actions**:
 - Rebuild eval set: strictly future data, same sampling process as production
-- Check PSI: compare score distribution in production to eval set. PSI > 0.25 → eval is stale.
+- Compare production and evaluation distributions with calibrated drift alerts and outcome performance
 - Add shadow mode logging: score production traffic, compare predicted vs actual outcomes
-- Treat any AP improvement < 0.03 as noise unless n_positives_in_eval > 1000
+- Use paired, dependence-aware uncertainty to distinguish improvement from noise
 
 ---
 
 ## Group 5: Regression and Forecasting Patterns
 
-### Pattern 5.1 — MASE < 1, but high systematic bias
+### Pattern 5.1 — Low scaled error, but high systematic bias
 ```
 MASE = 0.72 (beats naive)
 Mean bias = +25% (consistently over-predicts)
 ```
-**Diagnosis**: Model is better than naive in terms of error magnitude, but systematically biased. Usable for ranking/direction, not for absolute quantities.
+**Diagnosis hypothesis**: MASE is low relative to the training naive scale, but the
+model is systematically biased. Directly score the seasonal-naive forecast on the same
+test rows before claiming out-of-sample superiority.
 
 **Root causes**:
 1. Training data not representative of evaluation period (e.g., trained on high-demand period)
@@ -215,7 +228,7 @@ Mean bias = +25% (consistently over-predicts)
 3. Target variable has a trend the model hasn't captured
 
 **Actions**:
-- Apply bias correction: subtract mean(predicted - actual) on val set from all predictions
+- Test any train/validation-fitted bias correction on untouched data; do not fit it on test
 - Check: is bias consistent across segments or concentrated in specific groups? Segment-specific correction may be needed.
 - For inventory planning: use quantile regression at appropriate quantile rather than mean prediction
 - Report bias separately from MASE — these are independent failure modes
@@ -225,7 +238,7 @@ Mean bias = +25% (consistently over-predicts)
 ### Pattern 5.2 — MASE < 1 on aggregate, MASE > 1 on key segments
 ```
 MASE_overall = 0.65
-MASE_segment_A = 1.4 (worse than naive)
+MASE_segment_A = 1.4 (above the training naive scale)
 MASE_segment_B = 0.4 (strong)
 Segment A = 60% of revenue
 ```
@@ -239,18 +252,21 @@ Segment A = 60% of revenue
 **Actions**:
 - Always report MASE by segment, not just aggregate — this pattern is common and dangerous
 - Train segment-specific models if Segment A dynamics are genuinely different
-- Weight training loss by segment importance (e.g., by revenue) — reduces aggregate MASE but improves critical segments
+- Weight training loss by business/segment importance when justified, and report the
+  trade-off against unweighted aggregate and segment metrics
 
 ---
 
-## Group 6: Credit-Specific Patterns
+## Group 6: Credit & Fraud-Specific Patterns
 
 ### Pattern 6.1 — Gini stable, default rate rising
 ```
 Gini (validation): 0.55 → 0.54 → 0.53 (stable)
 Portfolio default rate: 1.5% → 2.1% → 3.2% (rising)
 ```
-**Diagnosis**: The model's discrimination power hasn't changed, but the population applying for credit has shifted (riskier applicants). This is a volume/mix problem, not a model problem.
+**Diagnosis hypothesis**: rank discrimination is stable, but this does not establish
+stable risk levels. Population mix, within-band calibration, policy, and concept drift
+remain plausible.
 
 **Root causes**:
 1. Macroeconomic change — more risky borrowers applying due to economic stress
@@ -261,7 +277,9 @@ Portfolio default rate: 1.5% → 2.1% → 3.2% (rising)
 - Check PSI: compare score distribution of recent applicants to training population
 - Check approval rate: if rising → cutoff lowered → admitting riskier borrowers at same model threshold
 - Distinguish: is default rate rising for the SAME score band, or because more applicants are in low-score bands?
-- If same score band shows rising defaults → model has degraded. If mix shift → tighten cutoff, not retrain.
+- Check observed-to-expected default by score band, vintage, product, and channel. A
+  changed score mix with stable within-band outcomes supports mix shift; rising
+  within-band defaults indicate calibration or concept drift.
 
 ---
 
@@ -275,26 +293,51 @@ Note: KS thresholds (e.g., KS < 40 = "acceptable") are industry convention witho
 **Diagnosis**: The maximum separation point (KS) has weakened while overall discrimination (Gini/AUC) is stable. This often means the score distribution shape has changed.
 
 **Root causes**:
-1. Score distribution has become more uniform — less extreme scores at the tails
-2. Cutoff point is now in a region of weaker separation
-3. Population shift concentrated at the KS inflection point
+1. ROC-shape or segment-mixture change concentrated near the maximum separation
+2. Label definition, sampling, or outcome-maturity change
+3. Sampling uncertainty in the empirical CDFs
 
 **Actions**:
 - Plot CDF of good/bad scores: where is the separation weakest? Has the crossing point moved?
-- Check if current operating cutoff is still near the KS maximum — if not, re-evaluate cutoff
-- Gini stable means overall ranking is ok — this may not require retraining, just cutoff adjustment
+- Re-evaluate the cutoff using calibrated expected loss/contribution, approval constraints,
+  and segment outcomes. KS diagnoses separation; its maximum is not a policy threshold.
 
 ---
 
-## Group 7: Leakage Suspicion Patterns
+### Pattern 6.3 — Fraud drift attribution check
+```
+PSI on transaction features: 0.15–0.30 (moderate-significant shift)
+Fraud loss rate: rising despite retraining
+KS: declining faster than typical seasonal variation
+```
+**Diagnosis hypothesis**: fraud distribution shift can be adversarial, but PSI/KS cannot
+identify the cause. Compare attack-vector concentration and matured outcomes against
+label, policy/logging, seasonal, pipeline, and organic population explanations before
+attribution or retraining changes.
+
+**Root causes**:
+1. Fraudsters iterating against your model — successful patterns get reused, blocked ones get mutated
+2. Retraining cadence too slow relative to attacker iteration speed
+3. Feature set is static — attackers have learned which signals you monitor
+
+**Actions**:
+- Segment PSI by channel/attack vector, not just aggregate — adversarial shift is usually concentrated, not uniform
+- Shorten the retraining window for fraud specifically, relative to organic-drift domains
+- Add features that are harder to game (velocity, network/graph) alongside static attributes
+- Before assuming "population changed" from a PSI spike, check whether loss concentrates on a pattern absent from training (a new attack signature)
+
+---
+
+## Group 7: Evaluation Validity Patterns (Leakage & Label Immaturity)
 
 ### Pattern 7.1 — Metrics too good to be true
 ```
-AP = 0.85 (positive rate = 2%)   → 38x lift
+AP = 0.85 (positive rate = 2%)   → 42.5x lift
 AUC-ROC = 0.98
 Train AP ≈ Val AP ≈ Test AP (suspiciously stable)
 ```
-**Diagnosis**: Data leakage. Something in the features contains information that wouldn't exist at prediction time.
+**Diagnosis hypothesis**: leakage or evaluation contamination is high priority, but high
+metrics alone do not prove either.
 
 **Root causes**:
 1. Target-derived features: a feature computed from or correlated with the outcome after the fact
@@ -305,8 +348,34 @@ Train AP ≈ Val AP ≈ Test AP (suspiciously stable)
 **Actions** (systematic leakage hunt):
 1. Remove all features computed after the prediction timestamp, re-evaluate
 2. Check feature importance — is one feature overwhelmingly dominant? Investigate it.
-3. Shuffle the target on training set: retrain, evaluate on test. If AP >> positive_rate → leakage confirmed.
+3. Use shuffled-target training as a pipeline sanity test. Above-random results suggest
+   evaluation/pipeline contamination or random variation; a passing result does not clear temporal leakage.
 4. Re-build with strict **point-in-time** feature construction — each feature uses only data at or before the prediction cutoff (the `feature-onboarding` skill, `references/leakage_and_tautology.md`, defines the cutoff/embargo/as-of timeline and the label-proxy tautology test).
+
+---
+
+### Pattern 7.2 — Recent-cohort labels are immature (label maturation lag)
+```
+Eval cohort: transactions/applications from the last 30 days
+Confirmed-positive rate in this cohort: unusually low
+Same cohort re-measured 90+ days later: rate roughly doubles
+```
+**Diagnosis**: Outcomes that take time to materialize are censored for cohorts too
+recent to complete the window. Prevalence is undercounted, but metric bias can move
+either way depending on score- and action-dependent delay. Do not use the cohort for a
+final comparison.
+
+**Root causes**:
+1. Eval window doesn't respect the outcome lag — recent cohort included despite unresolved outcomes
+2. No distinction made between "confirmed negative" and "not yet confirmed positive"
+3. Monitoring recomputes on a rolling recent window without adjusting for lag
+
+**Actions**:
+- Exclude cohorts younger than the outcome maturation window from evaluation
+- If recent data must be used, call it a lower bound only with a fixed denominator and
+  monotone, non-revocable positive labels; otherwise report an immature partial rate
+- Track the same cohort over time (vintage analysis) rather than a single snapshot
+- See `domains/fraud.md` / `domains/credit.md` for domain-specific maturation windows
 
 ---
 
@@ -322,7 +391,7 @@ Sales feedback: "these leads are not interested"
 
 **Root causes**:
 1. k is larger than the region where the model has good precision — AP is misleading here
-2. Score threshold is set to maximize AP, not Precision@actual_k
+2. Model selection optimized global AP while operating `k` or threshold was not selected from business constraints
 3. Model catches "intent signals" that look good statistically but don't reflect genuine buying interest
 
 **Actions**:
@@ -346,7 +415,7 @@ But: Precision@k on small companies = near-baseline
 3. Training data conflates "company fit" with "buying timing"
 
 **Actions**:
-- Ablation test: remove firmographic features, retrain, check AP. If AP drops < 10% → firmographics were proxy, not signal
+- Use held-out conditional and within-segment ablations; no fixed AP drop proves proxy behavior
 - Evaluate model separately for each company size tier — does the model add lift within a size tier?
 - Enrich with intent data (G2 reviews, job postings, funding signals) for genuine buying intent
 
@@ -366,8 +435,8 @@ But: only 3% of leads were ever worked below T
 
 **Actions**:
 - Do not use the conversion rate gap across the old threshold as evidence of model quality
-- Implement forced exploration: randomly work 5–10% of below-threshold leads, observe true conversion
-- Retrain after 1–2 quarters of exploration data to get unbiased labels
+- Design approved randomized exploration from power, capacity, contact constraints, and
+  customer impact; do not use a universal traffic percentage or duration
 
 ---
 
@@ -380,7 +449,9 @@ Precision@budget = 0.22
 Break-even precision = 0.06
 But: campaign ROI = -15%
 ```
-**Diagnosis**: Model correctly identifies at-risk customers, but those customers would have churned regardless of the intervention — or would have stayed anyway. Contacting them is wasted spend.
+**Diagnosis hypothesis**: prediction quality does not establish treatment response.
+Negative ROI may reflect heterogeneous treatment effects, costs, offer design, or
+campaign execution; observational risk scores cannot identify the causal class.
 
 **Root causes**:
 1. Model targets "sure churners" — customers who are already decided to leave
@@ -389,8 +460,8 @@ But: campaign ROI = -15%
 
 **Actions**:
 - Build uplift model if A/B holdout data exists: who responds to intervention, not who churns
-- Segment model output: identify and exclude "already churned" signals (e.g., cancelled subscription, support escalation in last 7 days)
-- A/B test the intervention: run with 10% holdout control group to measure true incremental retention
+- Audit post-outcome leakage and intervention timing; do not infer causal response types from risk features
+- Size an approved randomized holdout from power, costs, capacity, and governance constraints
 
 ---
 
@@ -421,7 +492,8 @@ Precision@budget month 2: 0.24
 Precision@budget month 3: 0.17
 PSI on key behavioral features: 0.18–0.30
 ```
-**Diagnosis**: Model degrading due to distribution shift in behavioral features. Seasonality, product changes, or market conditions altered how customers behave.
+**Diagnosis hypothesis**: feature distribution shift is one possibility. Label maturity,
+policy/logging changes, calibration failure, and concept drift require separate checks.
 
 **Root causes**:
 1. Behavioral features (usage frequency, feature adoption) are sensitive to product changes or seasonality
@@ -429,9 +501,8 @@ PSI on key behavioral features: 0.18–0.30
 3. Model not retrained frequently enough for a fast-moving product
 
 **Actions**:
-- Monitor PSI monthly on top 10 features — retraining trigger: any feature PSI > 0.2
-- Shorten training window to last 6 months (vs 2 years) — recency > volume for behavioral models
-- Implement rolling retraining: monthly retrain on a rolling window, track Precision@budget on holdout
+- Calibrate drift and retraining triggers from stable historical periods, uncertainty,
+  delayed-label performance, and business loss; choose window/cadence through validation
 
 ---
 
@@ -439,7 +510,7 @@ PSI on key behavioral features: 0.18–0.30
 
 ### Pattern 10.1 — NDCG high, catalog coverage < 10%
 ```
-NDCG@10 = 0.38 (strong, 40% above baseline)
+NDCG@10 = 0.38 (40% above the stated baseline, with uncertainty reported)
 Coverage = 7% (only 7% of catalog is ever recommended)
 Top 50 items account for 65% of all recommendations
 ```
@@ -461,7 +532,7 @@ Top 50 items account for 65% of all recommendations
 ```
 NDCG@10 (users > 20 interactions) = 0.42
 NDCG@10 (users 1–5 interactions) = 0.19
-NDCG@10 (users 0 interactions) = 0.08 (near-random)
+NDCG@10 (users 0 interactions) = 0.08 (compare with candidate-protocol-specific baselines)
 New users = 35% of daily active users
 ```
 **Diagnosis**: Collaborative filtering works for returning users but fails on cold start. 35% of users are getting near-random recommendations.
@@ -480,9 +551,8 @@ New users = 35% of daily active users
 
 ### Pattern 10.3 — Offline NDCG improving each experiment, but A/B CTR never moves
 ```
-Experiment 1: NDCG @10 +0.012 → A/B CTR: +0.1% (not significant)
-Experiment 2: NDCG @10 +0.018 → A/B CTR: +0.2% (not significant)
-Experiment 3: NDCG @10 +0.025 → A/B CTR: +0.1% (not significant)
+Offline NDCG improves repeatedly while valid online confidence intervals exclude the
+minimum practical CTR effect.
 ```
 **Diagnosis**: Systematic offline-online gap. NDCG is not measuring what drives online CTR.
 
@@ -492,9 +562,9 @@ Experiment 3: NDCG @10 +0.025 → A/B CTR: +0.1% (not significant)
 3. **Feedback loop**: the items that generate clicks in A/B are not the same items that generated clicks in the training data
 
 **Actions**:
-- Run a small randomized experiment (1–2% traffic): show random items, collect unbiased click data
-- Retrain using unbiased data with IPS (Inverse Propensity Scoring) to correct position bias
-- Change offline metric: instead of NDCG on historical clicks, use precision@k on IPS-weighted clicks
+- Size approved exploration from power and harm constraints; log assignment/exposure propensities
+- Require overlap and report weight clipping, effective sample size, variance, and uncertainty for IPS/SNIPS or doubly robust estimates
+- Compare policy-aware offline estimates with a valid randomized benchmark
 - Check if NDCG improvement correlates with revenue@k or session depth — if not, switch the offline target
 
 ---
@@ -502,7 +572,7 @@ Experiment 3: NDCG @10 +0.025 → A/B CTR: +0.1% (not significant)
 ## Synthesis: Diagnostic Decision Tree
 
 ```
-Start: Identify the domain first
+Start: Identify the domain first (if known)
 │
 ├─ LEAD SCORING
 │   ├─ AP adequate, SDR reports poor quality? → Pattern 8.1: Check Precision@SDR_k
@@ -510,56 +580,35 @@ Start: Identify the domain first
 │   └─ Big conversion gap at old threshold? → Pattern 8.3: Selection bias
 │
 ├─ CHURN PREDICTION
-│   ├─ Good AP, negative campaign ROI? → Pattern 9.1: Sure churners / uplift needed
+│   ├─ Good AP, negative campaign ROI? → Pattern 9.1: Prediction does not identify treatment response
 │   ├─ Good count-recall, poor MRR-recall? → Pattern 9.2: Weight by revenue
-│   └─ Rapid post-deployment decay? → Pattern 9.3: Distribution shift, retrain
+│   └─ Rapid post-deployment decay? → Pattern 9.3: Discriminate shift, labels, policy, and logging causes
 │
 ├─ RECOMMENDATION
 │   ├─ NDCG strong, coverage < 10%? → Pattern 10.1: Popularity bias
 │   ├─ Warm user NDCG good, new user NDCG poor? → Pattern 10.2: Cold start gap
 │   └─ NDCG improving but A/B never moves? → Pattern 10.3: Offline-online gap
 │
+├─ CREDIT / FRAUD
+│   ├─ Gini stable, default rate rising? → Pattern 6.1: Check mix and within-band calibration
+│   ├─ KS drops, Gini stable? → Pattern 6.2: Score distribution shape changed
+│   └─ PSI/KS shifting on a fraud model? → Pattern 6.3: Rule out adversarial adaptation before retraining
+│
+├─ FORECASTING
+│   ├─ MASE < 1 but high systematic bias? → Pattern 5.1: Apply bias correction
+│   └─ MASE good overall, bad on a key segment? → Pattern 5.2: Segment-specific correction
+│
 └─ GENERIC (applies to all domains)
-    ├─ AUC-ROC high, AP low? → Pattern 1.1: AUC inflated by imbalance
+    ├─ Recent cohort, outcome window not fully elapsed? → Pattern 7.2: Labels immature — check before trusting anything else
+    ├─ Metrics suspiciously high? → Pattern 7.1: Check leakage first
+    ├─ AUC-ROC and AP diverge? → Pattern 1.x: Inspect prevalence and operating region
     ├─ Train >> Val >> Test progressively? → Pattern 2.1: Overfitting
     ├─ Good val, cliff at test? → Pattern 2.2: Distribution shift
-    ├─ Precision AND recall both low? → Pattern 3.1: No signal in features
-    ├─ Metrics suspiciously high? → Pattern 7.1: Check leakage first
+    ├─ Val strong but A/B flat? → Pattern 2.3: Offline-online gap
+    ├─ No acceptable PR operating point? → Pattern 3.1: Test signal and support
+    ├─ Precision high, recall very low? → Pattern 3.2: Validate operating-policy intent
+    ├─ Metrics improving sprint over sprint but production flat? → Pattern 4.2: Eval set stale or contaminated
     └─ Good metrics, bad business outcome? → Pattern 4.1: Economics / constraint mismatch
-```
-
-```
-Start: You have multiple metric results
-│
-├─ AUC-ROC high (> 0.85) but AP low (< 5x lift)?
-│   └─ → Pattern 1.1: AUC inflated by imbalance. Switch to AP.
-│
-├─ Metrics collapse from train → val → test progressively?
-│   └─ → Pattern 2.1: Overfitting. Regularize, reduce complexity.
-│
-├─ Metrics good on val but test is much worse (cliff)?
-│   └─ → Pattern 2.2: Distribution shift. Check split method, feature drift.
-│
-├─ Val metrics strong but A/B flat?
-│   └─ → Pattern 2.3: Offline-online gap. Check feedback loop, metric alignment.
-│
-├─ Precision AND recall both poor at all thresholds?
-│   └─ → Pattern 3.1: No signal. Problem is data/labels, not model.
-│
-├─ Precision high, recall very low?
-│   └─ → Pattern 3.2: Threshold too conservative. Recalibrate operating point.
-│
-├─ Metrics improving sprint over sprint but production flat?
-│   └─ → Pattern 4.2: Eval set stale or contaminated. Rebuild eval.
-│
-├─ MASE < 1 but large systematic bias?
-│   └─ → Pattern 5.1: Good rank, wrong absolute values. Apply bias correction.
-│
-├─ Metrics suspiciously high (AP > 20x lift, AUC > 0.97)?
-│   └─ → Pattern 7.1: Probable leakage. Run leakage hunt before anything else.
-│
-└─ All metrics good but business KPI not met?
-    └─ → Pattern 4.1: Economics don't work at current capacity/cost. Revisit constraints.
 ```
 
 ---
@@ -570,11 +619,11 @@ If two or more patterns fire at once, use this priority hierarchy to determine t
 
 | Priority | Pattern type | Reason |
 |---|---|---|
-| 1 | **Pattern 7.1 — Leakage** | If leakage exists, all other metrics are meaningless. Rule it out first. |
+| 1 | **Pattern 7.1 — Leakage; Pattern 7.2 — Label immaturity** | If leakage exists or labels haven't matured, all other metrics are meaningless. Rule these out first. |
 | 2 | **Pattern 2.x — Train/Val/Test divergence** | Evaluation setup must be valid before interpreting any result. |
-| 3 | **Pattern 3.1 — No signal in features** | If no feature has predictive power, model/threshold fixes won't help. |
+| 3 | **Pattern 3.1 — Poor PR trade-off** | Test signal, support, and specification before model/threshold fixes. |
 | 4 | **Pattern 1.1 — Wrong metric** | Metric choice distorts all other diagnoses. Fix the lens before reading it. |
-| 5 | **Domain-specific patterns** (8.x, 9.x, 10.x) | Investigate after data/setup issues are ruled out. |
+| 5 | **Domain-specific patterns** (5.x, 6.x, 8.x, 9.x, 10.x) | Investigate after data/setup issues are ruled out. |
 | 6 | **Pattern 4.x — Business mismatch** | Address last — only meaningful when model validity is confirmed. |
 
 **Example**: AP too low + metrics collapse from val to test + leakage suspected.

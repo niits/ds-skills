@@ -52,9 +52,12 @@ fig = go.Figure()
 # Apply to discrete color scale
 ```
 
-### Wong Palette (Alternative for Categories)
+### Wong Palette (same colors, different citation)
 
-Another excellent colorblind-friendly palette by Bang Wong (Nature Methods).
+Bang Wong's 2011 Nature Methods "Points of View" column popularized this exact palette — it is
+the same 8 colors as Okabe-Ito above (just commonly listed with black first). It is not a
+perceptually distinct second option; use it only if your audience specifically expects the
+"Wong palette" citation.
 
 ```python
 wong_palette = {
@@ -132,73 +135,32 @@ Diverging colormaps have a neutral middle color with two contrasting colors at e
 
 ### Colorblind-Safe Diverging Maps
 
-**RdYlBu (Red-Yellow-Blue):**
-```python
-plt.imshow(data, cmap='RdYlBu_r')  # _r reverses: blue (low) to red (high)
-```
+Verified against `RColorBrewer::brewer.pal.info`'s `colorblindlist`. This table must stay in
+sync with `assets/color_palettes.py`'s `DIVERGING_COLORMAPS_SAFE` — same six maps, no more, no
+less; update both together.
 
-**PuOr (Purple-Orange):**
-- Excellent for colorblind viewers
-```python
-plt.imshow(data, cmap='PuOr')
-```
+| Colormap | Matplotlib name | Notes |
+|---|---|---|
+| Red-Yellow-Blue | `RdYlBu` (or `RdYlBu_r`) | `_r` reverses: blue (low) to red (high) |
+| Red-Blue | `RdBu` (or `RdBu_r`) | Standard choice for correlation/delta data |
+| Purple-Orange | `PuOr` | Excellent for colorblind viewers |
+| Brown-Blue-Green | `BrBG` | Good colorblind accessibility |
+| Purple-Green | `PRGn` | Confirmed safe (not "use with caution") |
+| Pink-Yellow-Green | `PiYG` | Confirmed safe (not "use with caution") |
 
-**BrBG (Brown-Blue-Green):**
-- Good colorblind accessibility
 ```python
-plt.imshow(data, cmap='BrBG')
+plt.imshow(data, cmap='RdBu_r')  # example usage, any map above works the same way
 ```
 
 ### Avoid These Diverging Maps
-- **RdGn (Red-Green)**: Problematic for red-green colorblindness
-- **RdYlGn (Red-Yellow-Green)**: Same issue
+- **RdYlGn (Red-Yellow-Green)**: Problematic for red-green colorblindness
+- **RdGy (Red-Gray)**: Same issue
 
 ### When to Use Diverging Maps
 - Correlation matrices
 - Change/difference data (positive vs. negative)
 - Deviation from a central value
 - Temperature anomalies
-
-## Special Purpose Palettes
-
-### For Genomics/Bioinformatics
-
-**Sequence type identification:**
-```python
-# DNA/RNA bases
-nucleotide_colors = {
-    'A': '#00CC00',  # Green
-    'C': '#0000CC',  # Blue
-    'G': '#FFB300',  # Orange
-    'T': '#CC0000',  # Red
-    'U': '#CC0000'   # Red (RNA)
-}
-```
-
-**Gene expression:**
-- Use sequential colormaps (viridis, YlOrRd) for expression levels
-- Use diverging colormaps (RdBu) for log2 fold change
-
-### For Microscopy
-
-**Fluorescence channels:**
-```python
-# Traditional fluorophore colors (use with caution)
-fluorophore_colors = {
-    'DAPI': '#0000FF',      # Blue - DNA
-    'GFP': '#00FF00',       # Green (problematic for colorblind)
-    'RFP': '#FF0000',       # Red
-    'Cy5': '#FF00FF'        # Magenta
-}
-
-# Colorblind-friendly alternatives
-fluorophore_alt = {
-    'Channel1': '#0072B2',  # Blue
-    'Channel2': '#E69F00',  # Orange (instead of green)
-    'Channel3': '#D55E00',  # Vermillion
-    'Channel4': '#CC79A7'   # Magenta
-}
-```
 
 ## Color Usage Best Practices
 
@@ -209,6 +171,8 @@ fluorophore_alt = {
 - Limit to 7-8 categories max in one plot
 - Use consistent colors for same categories across figures
 - Add patterns/markers when colors alone might be insufficient
+- Remember that color-vision-safe does not guarantee sufficient contrast on white.
+  Use dark borders/text for light fills and redundant line styles/markers for thin lines.
 
 **Don't:**
 - Use red/green combinations
@@ -236,20 +200,32 @@ fluorophore_alt = {
 - **Sim Daltonism**: Mac application
 
 ### Types of Color Vision Deficiency
-- **Deuteranopia** (~5% of males): Cannot distinguish green
-- **Protanopia** (~2% of males): Cannot distinguish red
-- **Tritanopia** (<1%): Cannot distinguish blue (rare)
+- **Deuteranomaly** (~5% of males): Green-weak (anomalous trichromacy) — the most common CVD;
+  green hues appear shifted/muted, not indistinguishable
+- **Protanomaly** (~1% of males): Red-weak (anomalous trichromacy) — similar, milder shift
+- **Deuteranopia** (~1% of males): Green-blind (dichromacy) — cannot distinguish red from green
+- **Protanopia** (~1% of males): Red-blind (dichromacy) — cannot distinguish red from green
+- **Tritanopia/Tritanomaly** (~0.01% combined, both sexes): Blue-yellow confusion; rare and
+  autosomal (unlike the X-linked red-green types above)
+
+Combined, deuteranomaly + protanomaly + deuteranopia + protanopia account for the skill's
+"~8% of males" figure used elsewhere in this reference set.
 
 ### Python Tools
 ```python
-# Using colorspacious to simulate colorblind vision
+# Using colorspacious to simulate colorblind vision on an RGB image array
 from colorspacious import cspace_convert
 
-def simulate_deuteranopia(image_rgb):
-    from colorspacious import cspace_convert
-    # Convert to colorblind simulation
-    # (Implementation would require colorspacious library)
-    pass
+def simulate_cvd(image_rgb, cvd_type="deuteranomaly", severity=100):
+    """
+    Simulate color vision deficiency on an RGB image (float array, 0-1 range).
+
+    cvd_type: 'deuteranomaly' (green-weak, most common), 'protanomaly' (red-weak),
+              or 'tritanomaly' (blue-weak, rare)
+    severity: 0-100, where 100 is full dichromacy
+    """
+    cvd_space = {"name": "sRGB1+CVD", "cvd_type": cvd_type, "severity": severity}
+    return cspace_convert(image_rgb, cvd_space, "sRGB1").clip(0, 1)
 ```
 
 ## Implementation Examples
@@ -298,8 +274,10 @@ fig = px.scatter(df, x='x', y='y', color='category',
 All figures should remain interpretable in grayscale. Test by converting to grayscale:
 
 ```python
-# Convert figure to grayscale for testing
-fig.savefig('figure_gray.png', dpi=300, colormap='gray')
+# Render, then convert the exported image for a grayscale preview
+from PIL import Image
+fig.savefig('figure.png', dpi=300)
+Image.open('figure.png').convert('L').save('figure_gray.png')
 ```
 
 **Strategies for grayscale compatibility:**
@@ -307,27 +285,6 @@ fig.savefig('figure_gray.png', dpi=300, colormap='gray')
 2. Use different marker shapes (circles, squares, triangles)
 3. Add hatching patterns to bars
 4. Ensure sufficient luminance contrast between colors
-
-## Color Spaces
-
-### RGB vs CMYK
-- **RGB** (Red, Green, Blue): For digital/screen display
-- **CMYK** (Cyan, Magenta, Yellow, Black): For print
-
-**Important:** Colors appear different in print vs. screen. When preparing for print:
-1. Convert to CMYK color space
-2. Check color appearance in CMYK preview
-3. Ensure sufficient contrast remains
-
-### Matplotlib Color Spaces
-```python
-# Save for print (CMYK)
-# Note: Direct CMYK support limited; use PDF and let publisher convert
-fig.savefig('figure.pdf', dpi=300)
-
-# For RGB (digital)
-fig.savefig('figure.png', dpi=300)
-```
 
 ## Common Mistakes
 

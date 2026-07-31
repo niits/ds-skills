@@ -36,6 +36,11 @@ From the Risk Committee version:
 - Remove: all ML metric names — replace with business language
 - Title: state the business action ("Model approved for production — expected 12% reduction in loss rate")
 
+Simplify terminology, not evidence. Every tier retains the decision threshold,
+uncertainty/range, material limitations, affected populations, and adverse subgroup
+effects. Translate ML metrics to business outcomes only through an explicit, documented
+impact model; do not imply that Gini or NDCG directly causes a business result.
+
 ---
 
 ## Domain Examples: Same KS = 0.42 Result
@@ -52,7 +57,7 @@ From the Risk Committee version:
 
 | Mistake | Problem | Fix |
 |---|---|---|
-| Sending Practitioner output to Executive | Confuses, loses credibility | Always strip to one number + one chart |
+| Sending Practitioner output to Executive | Confuses, loses credibility | Use one decision-focused chart while retaining uncertainty and limitations |
 | Sending Executive output to Risk Committee | Insufficient — will be sent back | Always include discrimination + stability charts |
 | Different data in different tier decks | Auditability failure in regulated context | Single source of truth; tiers share data, differ in framing only |
 | Using ML metric names (AUC, NDCG) in Executive deck | Audience doesn't know what they mean | Translate every ML metric to a business outcome before the Executive slide |

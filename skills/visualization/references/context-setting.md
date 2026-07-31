@@ -14,9 +14,13 @@ The Big Idea is a single sentence that:
 
 | Weak (description) | Strong (Big Idea) |
 |---|---|
-| "This report covers Q3 sales performance." | "We must expand the Northeast sales team because Q3 revenue grew 40% with only 2 reps." |
-| "Customer satisfaction data from the survey." | "Onboarding friction is driving churn — 68% of churned users never completed setup." |
-| "Model accuracy comparison across methods." | "The lightweight model is production-ready: 94% accuracy at 10x lower latency than the baseline." |
+| "This report covers Q3 sales performance." | "Northeast revenue grew 40% with two reps; test whether added staffing can sustain the opportunity." |
+| "Customer satisfaction data from the survey." | "Incomplete onboarding is associated with churn — 68% of churned users never completed setup." |
+| "Model accuracy comparison across methods." | "The lightweight model reaches 94% held-out accuracy at 10x lower latency; calibration, uncertainty, and operational gates still determine readiness." |
+
+Use causal verbs only when the design identifies a causal effect. Include denominator,
+period, uncertainty, source, and material counterevidence in the title, subtitle,
+annotation, or caption rather than strengthening the headline beyond the evidence.
 
 ---
 

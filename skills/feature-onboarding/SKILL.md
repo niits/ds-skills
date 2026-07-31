@@ -1,11 +1,11 @@
 ---
 name: feature-onboarding
-description: Use when onboarding a new feature group into a supervised ML pipeline (lead scoring or credit scoring; binary, ranking-oriented) and you need to gate it against the failures that actually kill models — leakage, definitional tautology, redundancy, and out-of-time drift — before it reaches production code. Covers source-semantics verification, hypothesis-first feature design, IV/WoE screening, incremental-lift selection, point-in-time/leakage audits, PSI and out-of-time stability, mode-dependent null handling, and a soft-threshold Go/No-Go gate. Extensible to recommendation systems; examples in PySpark.
+description: Use when onboarding a new feature group into a supervised ML pipeline for lead scoring or credit scoring (binary, ranking-oriented) and you need to gate it against leakage, definitional tautology, redundancy, and out-of-time drift before production. Covers source-semantics verification, hypothesis-first feature design, IV/WoE screening, incremental-lift selection, point-in-time audits, PSI and out-of-time stability, mode-dependent null handling, and a predeclared Go/No-Go gate. Includes an unsupported recommendation-system design roadmap; examples use PySpark.
 allowed-tools: Read Write Edit Bash
 license: MIT license
 metadata:
     skill-author: ds-skills
-    domain: lead scoring / credit scoring (extensible to recsys)
+    domain: lead scoring / credit scoring
     primary-label-type: binary classification
 ---
 
@@ -15,7 +15,7 @@ metadata:
 
 A disciplined process for taking a **new feature group** from idea to production code, with gates that catch the failures that actually kill models in production: **leakage**, **tautology**, **redundancy**, and **distribution drift**.
 
-This skill is opinionated toward **lead scoring** and **credit scoring** — binary labels, ranking-driven decisions, regulated or semi-regulated settings. It is structured so the same backbone extends to **recommendation systems** later (see `domains/recsys_extension.md`).
+This skill supports **lead scoring** and **credit scoring** — binary labels, ranking-driven decisions, regulated or semi-regulated settings. `domains/recsys_extension.md` is an unsupported design roadmap, not an executable extension.
 
 > **Core stance**: High univariate IV does *not* validate a feature. A feature earns its place only after it survives leakage checks, adds **incremental model lift** beyond existing features, and stays **stable out-of-time**. Everything before that is a filter, not a verdict.
 
@@ -36,14 +36,14 @@ The whole pipeline branches on one decision. Make it before Phase 1 and keep it 
 
 | Decision | **Scorecard mode** (WoE + logistic) | **GBM mode** (tree ensemble) |
 |---|---|---|
-| Typical use | Credit scoring, regulated lending | Lead scoring, internal ranking, recsys |
-| Binning | **Monotonic supervised binning required**; features enter as WoE | Optional; raw values fine, splits learned by trees |
-| Null handling | Must impute (no native NaN) → bin nulls as own group or impute + flag | Leave NaN where genuinely unknown; trees split natively |
-| Monotonicity | Enforced per feature (reason codes, regulator scrutiny) | Optional monotone constraints |
+| Typical use | Credit scoring, regulated lending | Lead scoring, internal ranking |
+| Binning | Supervised binning fitted on train; features enter as WoE | Optional; raw values may be used |
+| Null handling | Must define every value → bin nulls as own group or impute + flag | Use native missing routing only when the chosen estimator and serving stack support it; otherwise impute + flag |
+| Monotonicity | Common governance default; require when policy or domain reasoning calls for it | Optional monotone constraints |
 | Redundancy tolerance | Low — multicollinearity breaks coefficient interpretability | Higher — trees tolerate correlated inputs |
-| Fairness / proxy check | **Mandatory** (protected-attribute proxies are a legal risk) | Strongly recommended |
+| Fairness / proxy check | Required by applicable decision-domain governance, not model family | Required by applicable decision-domain governance, not model family |
 
-`★` If you cannot answer "scorecard or GBM?" yet, default to **GBM mode** for exploration and re-binning later — but know that credit scoring almost always ends in scorecard mode, so design features that can be monotonically binned.
+`★` If you cannot answer "scorecard or GBM?" yet, GBM may be used for explicitly provisional exploration. A later mode change requires rerunning every mode-dependent phase, transformation, criterion, lift comparison, and validation result; GBM selection does not validate a WoE/logistic scorecard.
 
 See `references/null_handling.md` and `domains/credit_scoring.md` for the consequences of each mode.
 
@@ -51,12 +51,12 @@ See `references/null_handling.md` and `domains/credit_scoring.md` for the conseq
 
 ## The 12 Phases
 
-Phases 1–8 are **analysis on validation data only** (no test/OOT leakage into decisions). Phases 9–12 are **engineering**.
+Phases 1–7 use **development data**: fit bins, imputers, transformations, and models on train; make feature-selection decisions on chronological validation folds using only train-fitted artifacts. Phase 8 evaluates the frozen pipeline once on an untouched, later OOT window. If that result causes any revision, the inspected window becomes development data and a new untouched future holdout is required. Phases 9–12 are engineering and release work, not opportunities to tune on OOT.
 
 ### Phase 1 — Data Source Understanding
 **Goal**: Understand the source table before computing anything.
 1. Identify source table, schema, **granularity** (what does 1 row represent?).
-2. **Verify column semantics with formula checks — never assume.** Write `col_a + col_b == col_c` on a sample; record confirmed formulas and decomposition trees.
+2. **Verify column semantics with formula checks — never assume.** Reconcile candidate formulas over representative entities and periods using type-aware tolerances, units, null semantics, and documented exceptions; record the evidence and decomposition trees.
 3. Data range: time-dimension min/max, row count per period.
 4. Coverage: what % of target entities appear in this table?
 5. Null rates for key columns.
@@ -67,7 +67,9 @@ Phases 1–8 are **analysis on validation data only** (no test/OOT leakage into 
 ### Phase 2 — Feature Hypothesis Formulation
 **Goal**: Design and name features by **observable phenomenon**, not assumed business meaning — and **justify each one before computing it**.
 
-**Required artifact — a one-line hypothesis per candidate feature** *(write this before Phase 3 touches any data)*:
+**Required artifact — feature decision ledger** *(start it before Phase 3 touches any data and update it through Phase 9)*. One row per candidate records: name and formula; verified source semantics and lineage; population and grain; hypothesis; event/effective time; recorded/available time; scoring cutoff and boundary convention; null meaning; lag definition; model mode; predeclared screening, lift, stability, and uncertainty criteria; phase results; final decision and reason; owner; and data/code versions.
+
+The hypothesis field uses this format:
 
 > `feature_name` — *from* `<source column(s) / their verified semantics>` — *measures* `<subject behavior/state>` — *expected to relate to the label because* `<business / domain reasoning>`.
 
@@ -80,6 +82,8 @@ Every feature must answer: *"What behavior or state does this measure from the s
 - **Structure** (point-in-time snapshot at T): concentration index, share, per-unit intensity, count, ratio.
 - **Temporal** (change over time): MoM pct_change, lag-N diff, volatility, streak.
 
+Before computing a candidate, establish its temporal eligibility in the ledger. Define the exact scoring timestamp, non-overlapping label interval, source event/effective timestamp, source recorded/available timestamp, and whether each cutoff is open or closed. A closed period may use `≤ T` only when the source is finalized before scoring; event-driven scoring normally uses feature data `< T` and outcomes `(T+g, T+g+h]`, unless a stable sequence key proves transaction order. If historical values cannot be reconstructed as they were knowable at each cutoff, mark the candidate **BLOCKED**.
+
 **Name by formula/measurement, never by assumed meaning:**
 - Good: `dep_share`, `per_acct_mom_pct`, `hhi`, `eom_to_peak_ratio`
 - Bad: `loyalty_score`, `risk_indicator`, `salary_ratio`
@@ -91,7 +95,7 @@ Every feature must answer: *"What behavior or state does this measure from the s
 - **Assumes causation from correlation** (naming a peak inflow "salary" without evidence).
 
 ### Phase 3 — Prototype in Exploration Notebook
-**Goal**: Compute features quickly and check signal exists.
+**Goal**: Compute temporally eligible features quickly and check signal exists.
 - Dedicated exploration notebook, separate from pipeline code.
 - Load label + target population (observation periods only); load raw data over observation **+ historical** periods (enough for lag computation).
 - **Single read** of source → **single heavy aggregation** → **persist one intermediate** → derive multiple outputs from it (aggregates, concentration metrics, pivots, lags). Keep distributed; no driver materialization; no diagnostic counts in production-bound code. (See the `databricks` skill for the join-chain mechanics.)
@@ -121,34 +125,34 @@ Method, thresholds, and the practical traps (zero-event bins → ±∞ WoE, spar
 
 This is two checks, not one (see `references/redundancy_and_lift.md`):
 
-1. **Redundancy** — use **Spearman** (rank), not just Pearson, so monotonic non-linear duplication is caught. Pairwise `|r|` is *not enough*: a new feature orthogonal to each existing feature individually can still be a linear combination of several. Add a **multivariate check** (VIF, or R² of regressing the new feature on the existing set). In **scorecard mode** redundancy tolerance is low; in **GBM mode** it is higher.
+1. **Redundancy** — use **Spearman** (rank), not just Pearson, so monotonic non-linear duplication is caught. Pairwise `|r|` is *not enough*: a new feature orthogonal to each existing feature individually can still be a linear combination of several. Add a **multivariate check** (VIF, or R² of regressing the new feature on the existing set). In scorecard mode, calculate coefficient-collinearity diagnostics on the train-fitted WoE design matrix; raw-column VIF is only exploratory. In GBM mode, correlation is a diagnostic, not a drop rule.
 
 | `|r|` | Interpretation | Action |
 |---|---|---|
-| ≥ 0.7 | Highly redundant | Drop (unless materially higher IV than the existing one) |
-| [0.5, 0.7) | Moderate overlap | Keep only if IV clearly higher |
+| ≥ 0.7 | Highly redundant | Investigate with mode-specific ablation and governance needs |
+| [0.5, 0.7) | Moderate overlap | Compare stable conditional/group lift |
 | [0.3, 0.5) | Some correlation | Keep — incremental info |
 | < 0.3 | Orthogonal | Keep |
 
-2. **Incremental lift (wrapper/embedded)** — IV/correlation are *filters*. Before locking a feature, confirm it **improves the model**: add it to the baseline and measure Gini/AUC (scorecard) or AUC/PR + permutation/SHAP importance (GBM) on **validation**. A feature with weak univariate IV can earn its place via interactions; a feature with strong IV can add nothing if its information is already in the model.
+2. **Incremental lift (wrapper/embedded)** — IV/correlation are *filters*. Before locking a feature, confirm it **improves the model** through paired baseline-versus-candidate evaluation on identical chronological validation folds. Permutation importance and SHAP are usage/attribution diagnostics, not proof of incremental value; correlated groups require grouped/conditional diagnostics or explicit ablation. A feature with weak univariate IV can earn its place via interactions; a feature with strong IV can add nothing if its information is already in the model.
 
-**Empirical note**: rate-of-change features (MoM pct_change) are typically near-orthogonal to level features → keep both.
+**Hypothesis to test**: rate-of-change features can be near-orthogonal to level features. Keep both only when measured redundancy and validation ablation support it.
 
 ### Phase 6 — Leakage & Tautology
-**Goal**: Confirm the feature is not cheating. Two distinct failure families (full detail in `references/leakage_and_tautology.md`):
+**Goal**: Verify in implemented lineage and code that the pre-computation eligibility check was correct. Two distinct failure families (full detail in `references/leakage_and_tautology.md`):
 
 **6a. Temporal / point-in-time leakage** — *the most common real-world leak.*
-- Draw the timeline: `feature cutoff T → [embargo/gap g] → label window [T+g, T+g+h]`.
-- Assert every input to the feature uses data **≤ T** — including **late-arriving / restated** rows that look like they belong to T but were written later.
+- Draw the timeline: `feature cutoff T → [optional gap g] → label window [T+g, T+g+h]` and declare endpoint conventions.
+- Assert every input satisfies the ledger's event/effective-time and recorded/available-time predicates, including late-arriving or restated rows.
 - No post-outcome field may enter the snapshot.
 - A feature can have `|r| < 0.3` with a label proxy and *still* leak by using future data.
 
 **6b. Definitional tautology.**
 1. **What defines the label?** (threshold on which metric? horizon?)
-2. **Does the feature directly measure that metric?** If label = `X crosses threshold` and feature ≈ `ΔX` → tautological. A derived/adjusted variant of X → needs verification.
+2. **Does the feature contain, reconstruct, or overlap the realized label-window quantity?** A historical pre-cutoff measurement of the same kind of quantity can be a valid predictor; identity of variable type alone is not tautology.
 3. **Causal direction**: feature → label (predictive) OK; same root cause → both (co-symptoms) OK but weaker; feature ≈ label (same quantity) → **drop**.
 
-**Verification**: correlate the suspect feature with a **direct proxy of the label metric**. `|r| > 0.8` → proxy, drop or document with extreme care. `< 0.3` → confirmed not tautological. `0.3–0.8` → investigate mechanical vs behavioral.
+**Verification aid**: correlate the suspect feature with a direct proxy of the label metric. Any cutoff is only an investigation trigger: low correlation does not clear a feature, and high correlation does not prove circularity. Decide from lineage, timing, formula overlap, and production availability.
 
 > **Key lesson**: An IV of 0.9 that comes from measuring the label's own definition is worthless — circular reasoning disguised as signal.
 
@@ -164,41 +168,39 @@ This is two checks, not one (see `references/redundancy_and_lift.md`):
 | Coverage | Highest | Medium | Lowest |
 | IV | Highest (recency) | Medium | Medium-term |
 | Collinearity w/ short | — | High | Lower |
-| Verdict | **PRIMARY** | Drop if collinear | **SUPPLEMENTARY** |
+| Illustrative role | Often recent | Often overlapping | Often longer-term |
 
-**Typical outcome**: keep shortest (primary) + longest feasible (different time perspective); drop intermediate lags (redundant with shortest). **Never** design lags longer than the source history supports → null-dominated features.
+**Selection**: treat the table as an illustration, not a verdict. Select horizons from measured coverage, stable validation lift, and redundancy. Define lag-N as exactly N calendar/business periods, not N preceding rows; use a complete entity-period spine or an exact-period keyed join. Never design lags longer than the source history supports.
 
 > **Mode note**: the IV-vs-horizon comparison here is the binary *screen* and applies to both modes. In **scorecard mode** the surviving lag features still enter the model as WoE-binned characteristics, not raw values.
 
 ### Phase 8 — Stability & Out-of-Time Validation — *do not skip*
 **Goal**: Confirm the feature holds up over time, not just in one validation slice (detail in `references/stability_and_oot.md`).
-1. **PSI** of each feature's distribution across periods — flag/drop if `PSI ≥ 0.25` (significant shift).
-2. **IV by period**, not only pooled IV — a feature whose IV collapses in recent periods is dying.
-3. **OOT confirmation**: after the feature set is provisionally locked, evaluate it once on an **out-of-time** window *after* train/validation. Report the Gini/AUC drop. High in-sample IV that does not survive OOT is a trap.
+1. **PSI** of each feature's distribution across development periods — `PSI ≥ 0.25` is a default investigation trigger, not an automatic drop.
+2. **IV by development period**, not only pooled IV — a feature whose IV collapses in recent development periods is dying.
+3. **OOT confirmation**: after the complete pipeline is locked, evaluate it once on an **out-of-time** window after train/validation. Report the predeclared metrics and uncertainty. OOT failure produces NO-GO for that frozen configuration; do not diagnose, remove features, and retest on the same window.
 
-### Phase 9 — Final Feature Selection
-**Drop if ANY**:
-- IV < 0.02 **and** no interaction value **and** no incremental lift.
-- `|r| > 0.7` with an existing feature of equal/higher IV (multivariate-confirmed).
-- Tautological (`|r| > 0.8` vs label proxy) or temporally leaky.
-- Measures institutional perspective only.
-- Binary flag for population < 5%.
-- `PSI ≥ 0.25` or IV collapses out-of-time.
+### Phase 9 — Final Decision Recording
+Record the frozen pre-OOT feature decisions and the OOT `PASS/NO-GO` result. Do not
+change feature selection from the inspected OOT result; any revision requires a new
+future holdout.
+
+Use the predeclared criteria in the decision ledger. The numeric bands in this skill are review defaults, not universal laws. Drop a candidate for temporal leakage or proven label reconstruction; otherwise require evidence appropriate to sample size, uncertainty, operational cost, and model mode. Correlation, prevalence, null rate, IV, or PSI alone does not mandate removal.
 
 **Keep priority** (high→low):
 1. Strong IV (≥ 0.3) + orthogonal + adds lift.
 2. Medium IV ([0.1, 0.3)) + orthogonal + adds lift.
 3. Weak IV ([0.02, 0.1)) + highly orthogonal + measurable lift (new information despite weak univariate IV).
-4. Medium IV + moderate correlation (0.3–0.5) but interpretably distinct.
+4. Medium IV + moderate correlation (0.3–0.5) + stable conditional/group lift, when interpretably distinct.
 
-> **Mode note**: this priority is stated in IV terms (the binary screen). In **scorecard mode**, also require the feature to bin monotonically and pass the fairness/reason-code filters from `domains/credit_scoring.md`; in **GBM mode**, prefer the incremental-lift/permutation-importance evidence from Phase 5 over raw IV.
+> **Mode note**: this priority is stated in IV terms (the binary screen). In **scorecard mode**, require compliance with the declared monotonicity policy, including any approved exception, and pass the fairness/reason-code filters from `domains/credit_scoring.md`; in **GBM mode**, prefer incremental-lift evidence from Phase 5 over raw IV.
 
-**Null handling** is mode-dependent — see `references/null_handling.md`. Summary: absence-based → fill 0 **plus a missingness flag** (don't conflate "structurally absent" with "unknown"); ratio/share → leave NaN (GBM) or bin-as-group (scorecard); lag pct_change → NaN (genuinely unknown); lag absolute diff → fill 0 (no prior = no change).
+**Null handling** is mode-dependent — see `references/null_handling.md`. Summary: establish structural absence from independent eligibility/ownership evidence, then encode as 0 plus an absence flag; keep unknown ratios and missing lag history missing unless the selected estimator requires a train-fitted representation. No prior observation is not zero change.
 
 ### Phase 10 — Module Implementation
 **Function contract**: input = entity population, time range, optional lookback; output = `[entity_id, time_period, ...feature_cols]`; deterministic; handles partial history and null source.
 
-**Computation**: single read (filter time + population early) → persist the heaviest intermediate **only when it fans out to ≥ 2 downstream branches/actions** (a single linear pass should not cache — it just adds serialization/spill overhead) → derive all outputs from it → one window definition computes all lags in one pass. Prefer `MEMORY_AND_DISK`. No side effects (no writes, counts, or driver materialization).
+**Computation**: single read (filter time + population early) → persist the heaviest intermediate **only when it fans out to ≥ 2 downstream branches/actions** → derive outputs. Before row-based lag, assert one row per entity-period and densify the declared calendar; otherwise use an exact-period keyed join. Prefer `MEMORY_AND_DISK`. No side effects (no writes, counts, or driver materialization).
 
 > **`unpersist` footgun**: do **not** `unpersist()` the cached intermediate *before* returning a still-lazy derived DataFrame — Spark hasn't computed it yet, so releasing the parent forces a full recompute from source on the caller's first action, defeating the cache. Either materialize the result before unpersisting, or (cleaner for a library function) **don't cache inside the function at all** and let the caller own the cache lifecycle.
 
@@ -228,19 +230,16 @@ Verify offline↔online **parity** on a sample and define freshness/TTL for the 
 store. A feature that is point-in-time-correct offline but recomputed differently at
 serving time reintroduces the skew you just eliminated.
 
-**Reproducibility**: deterministic given the same inputs means **deterministic window
-ordering** (Spark ordering is nondeterministic without an explicit `orderBy` tiebreaker
-in each window), fixed seeds for any sampling/CV, and recording the **data + code
-version** with each snapshot (Delta table version / `TIMESTAMP AS OF`, plus the code
-git SHA or a transform hash) so a feature set can be regenerated byte-for-byte.
+**Reproducibility** means the same declared key set, schema, and feature values within declared numeric tolerances. Use deterministic window ordering with stable tiebreakers; record source versions, transform/code version, parameters, runtime and dependency versions, and seeds. Distributed execution does not generally guarantee byte-identical files or floating-point reductions.
 
-**Verify** (one-time integration check / data-quality layer — *not* counts inside the
-compute function): schema = `[entity_id, time_period]` + declared cols; row count ≈
-`target_population × observation_periods`; null rates within documented bounds; no
-inf / division-by-zero artifacts; value distributions sane (min/max/median).
+**Verify** in a one-time integration/data-quality layer: declare the output primary key; assert uniqueness; reconcile expected and actual population keys with anti-joins in both directions; document intentional exclusions; validate schema, null rates, finite values, ranges, and period/source-coverage segments. Aggregate row counts are diagnostics, not proof of grain preservation.
+
+**Production monitoring handoff**: before release, record monitored features and score, frozen reference bins/windows, freshness and publication lag, key uniqueness, coverage/null/range checks, feature/score drift, delayed-label performance, cadence, thresholds, owner, escalation action, and retraining/review trigger. Credit deployments also require governance-defined fairness and calibration monitoring.
+
+**Integration stop condition**: train/serve parity, primary-key uniqueness, and finite-value integrity are unconditional hard stops. Release is `BLOCKED` until they pass. Approved dispositions may cover only declared semantic exceptions such as intentional population exclusions, expected nullable fields, or governance-approved freshness/range limits; record each exception explicitly.
 
 ### Phase 12 — Cleanup
-Move exploration notebook to an experiments dir; strip diagnostic cells from the production notebook (keep compute + persist); fix moved relative paths; write a clear commit documenting what was added and from what source.
+Move the exploration notebook to an experiments directory; strip diagnostic cells from production code; fix moved relative paths; prepare a change summary and suggested commit message. Commit only when explicitly authorized by the host workflow or user.
 
 ---
 
@@ -250,19 +249,20 @@ Before Phase 10 (implementation), **all** gates must PASS:
 
 | Gate | Criterion |
 |---|---|
-| Data OK | Coverage adequate for the feature's intent (a sparse-but-strong feature is fine **with a missingness flag**); null < 20% for key features |
-| Predictive | ≥ 3 features with IV > 0.05 (deliberate mid-weak-band screening floor, between the 0.02 "drop" and 0.1 "medium" lines; **IV assumes a binary label** — for regression/multiclass use the alternatives in `references/predictive_power.md`) |
-| Adds lift | Feature set measurably improves the model on validation (not just univariate IV) |
-| Not redundant | Majority `|r| < 0.5` vs existing, **multivariate-confirmed** (VIF / R²) |
-| Temporally safe | Every feature uses data ≤ cutoff; embargo between cutoff and label window; no late-arriving leakage |
-| Not tautological | No feature `|r| > 0.8` vs label proxy |
-| Stable | `PSI < 0.25` across periods; IV does not collapse out-of-time |
+| Data OK | Unknown-data missingness and structural absence meet separate predeclared criteria; coverage is adequate for the intended decision |
+| Predictive | At least one candidate or candidate group meets its predeclared univariate or interaction evidence standard |
+| Adds lift | Frozen feature set exceeds a noise-aware, predeclared validation-lift threshold |
+| Not redundant | Mode-specific ablation and model-matrix diagnostics justify retained overlap |
+| Temporally safe | Every feature satisfies declared event/effective and recorded/available-time predicates; any gap is estimand- or latency-driven |
+| Not tautological | Lineage and formula review finds no realized-label reconstruction or overlap |
+| Stable | Drift triggers are investigated and dispositioned; the frozen pipeline passes one untouched OOT confirmation |
 | Motivated | Every feature has a written hypothesis grounding it in source semantics + business + domain; none were generated mechanically |
 | Conceptual | Measures subject behavior, not internal metric |
-| Lag feasible | Source range supports chosen lags with acceptable coverage |
+| Lag feasible | Source range supports exact-period lags with predeclared coverage |
 | Mode-consistent | Binning, null handling, monotonicity, fairness all match the chosen Model Mode |
+| Auditable | Decision ledger contains predeclared criteria, evidence, disposition, owner, and versions for every candidate |
 
-`★` The original "Coverage ≥ 80%" hard gate was **softened on purpose**: coverage and predictive power interact. A feature covering 40% of entities with strong signal on that 40% is valuable *if* you add an explicit missingness indicator. Don't discard it on a blanket coverage rule.
+Adopt or replace all default thresholds before viewing results. Undefined terms such as “adequate,” “measurable,” or “acceptable” produce **BLOCKED**, not discretionary PASS.
 
 ### Tiering — so the process isn't skipped wholesale
 
@@ -282,14 +282,14 @@ State which tier you ran in the documentation. Never trade away the non-negotiab
 3. **Pearson-only redundancy** — misses non-linear (use Spearman) and multivariate (use VIF/R²) duplication.
 4. **Ship without OOT / PSI** — a feature strong in-sample but drifting is a time bomb.
 5. **Assume column meaning** — verify with formula checks; internal columns have non-obvious semantics.
-6. **Keep all lag horizons** — intermediate lags are usually redundant with the shortest.
+6. **Keep all lag horizons without evidence** — test every retained horizon with measured redundancy, coverage, and validation ablation.
 7. **Name by assumed meaning** — name by what you measure.
 8. **Include institutional-perspective features** — profitability/strategy metrics measure the *institution's* decisions, not subject intent.
 9. **Ignore data availability** — long lags on short history = null-dominated features.
-10. **Conflate "absent" with "unknown"** in null fill — fill 0 *and* add a missingness flag.
+10. **Conflate "absent" with "unknown"** — prove structural absence from independent evidence before encoding 0 plus an absence flag.
 11. **Materialize to driver during computation** — keep distributed until final viz/fit.
 12. **Multiple reads of the same source** — persist one intermediate, derive many outputs.
-13. **Validate selection on test/OOT** — all engineering decisions use **validation only**; the test/OOT slice confirms the *locked* set once.
+13. **Validate selection on test/OOT** — fit artifacts on train and make selection decisions on development validation; OOT confirms the locked pipeline once.
 14. **Mode-straddling** — WoE binning + "let trees handle NaN" in the same pipeline is incoherent. Commit to a Model Mode.
 15. **Brute-forcing features / feature factories** — generating transforms en masse and screening afterward wastes compute and time, inflates multiple-testing false discoveries (Phase 5), and drowns real signal. Compute only features you can justify *in advance* from source semantics + business + domain (Phase 2). Quality and motivation over quantity.
 
@@ -307,4 +307,4 @@ State which tier you ran in the documentation. Never trade away the non-negotiab
 ### domains/
 - `credit_scoring.md` — scorecard/WoE mode, monotonic binning, reason codes, fairness / protected-attribute proxy check, reject-inference note.
 - `lead_scoring.md` — ranking framing, feature latency, SDR capacity & selection bias on contacted leads, label timing.
-- `recsys_extension.md` — extending the backbone to recommenders: user/item/context features, per-interaction point-in-time, implicit-feedback leakage, popularity/position bias.
+- `recsys_extension.md` — unsupported recommender-system roadmap covering prerequisites and known transfer limits.

@@ -6,7 +6,9 @@ Recommendation ranks items for a user to maximize a business objective.
 The objective is almost never "predict what the user clicks" — it is usually
 "maximize revenue, engagement, or retention" subject to business constraints.
 
-**Offline metrics are proxies. A/B test results are ground truth.**
+**Offline metrics are proxies.** A well-powered, correctly randomized online experiment
+is primary causal evidence for its specified horizon only after validating sample-ratio
+balance, logging, exposure, novelty/carryover, uncertainty, and business guardrails.
 
 The most common mistake: optimizing NDCG offline and shipping a model
 that doesn't move any business metric in production.
@@ -29,14 +31,14 @@ that doesn't move any business metric in production.
 
 | KPI | Definition | Notes |
 |---|---|---|
-| CTR (Click-Through Rate) | Clicks / Impressions | Position-biased — normalize by position |
+| CTR (Click-Through Rate) | Clicks / Impressions | Position-biased; use randomized or identified propensity/click-model adjustment for causal interpretation |
 | CVR (Conversion Rate) | Purchases / Clicks | Downstream of CTR |
 | Revenue per session | Total revenue / Sessions | Integrates CTR + CVR + AOV |
 | AOV (Average Order Value) | Revenue / Orders | High CTR + low AOV = wrong items |
 | Session depth | Pages/items viewed per session | Engagement proxy |
 | Return visit rate | Sessions with return visit / Total sessions | Retention signal |
 | Catalog coverage | Unique items recommended / Total catalog | Low = popularity bias |
-| Incremental revenue | Revenue_treatment - Revenue_control (A/B) | Ground truth |
+| Incremental revenue | Randomized treatment-control revenue contrast | Effect estimate requiring estimand, CI, and experiment-validity checks |
 
 ### Which KPI to Optimize For
 - **Discovery product** (new users, cold start): prioritize coverage and diversity
@@ -58,10 +60,11 @@ NDCG@k = DCG@k / IDCG@k
 DCG@k = Σ (rel_i / log2(i+1)) for i = 1..k
 ```
 
-> Source: Järvelin & Kekäläinen (2002), ACM TOIS — original NDCG definition.
+*(citation: `foundations/citations.md`)*
 
-**Limitation**: NDCG treats all "relevant" items equally. Buying a $200 item ≠ buying a $10 item.
-Use Revenue@k when purchase value matters.
+**Limitation**: binary relevance treats all relevant items equally. NDCG supports graded
+gains, but their value mapping must be defined and validated. Use Revenue@k or expected
+profit@k when purchase value matters.
 
 ### Hit Rate@k (HR@k)
 - Fraction of users for whom the held-out item appears in top-k recommendations
@@ -126,10 +129,18 @@ Users abandon recommendation feeds that feel repetitive.
 
 ### Step 1: Choose the Right Eval Strategy
 
+First freeze the candidate protocol: serving query, candidate generator and eligibility,
+catalog snapshot time, seen-item handling, candidate-generation recall, and full-catalog
+versus sampled-negative evaluation. If negatives are sampled, state distribution and
+count. Compare rankers on identical candidate sets; metrics from different candidate
+protocols are not comparable.
+
 **Temporal split (required for production-realistic evaluation)**:
-- Train on interactions before time T
-- Test on interactions after T
-- Never random split — it leaks future behavior into training
+- Fit on past training interactions; perform model/candidate selection on later,
+  group-disjoint development/validation interactions
+- Evaluate once on a final chronological, group-disjoint untouched test window
+- Use chronological OOT evaluation for future deployment and group repeated users/entities.
+  Random splitting may estimate the wrong regime even when it does not mechanically leak.
 
 **Leave-one-out split (common but optimistic)**:
 - For each user, hold out their last interaction
@@ -149,6 +160,9 @@ Never aggregate metrics across all users — decompose by:
 | Active users (> 20 interactions) | Core of collaborative filtering value |
 | High-value users | Revenue impact concentration |
 | Niche interest users | Diversity and coverage failure mode |
+
+For each segment, report users/queries, relevant-item count, metric interval, and policy
+volume. Suppress or mark low-support segments inconclusive.
 
 ### Step 3: Compute the Full Metric Set
 
@@ -182,7 +196,7 @@ Checklist:
 
 | Symptom | Diagnosis | Action |
 |---|---|---|
-| NDCG improves, CTR flat in A/B | Offline-online gap: position bias or metric mismatch | Debias training data; change offline metric to match A/B KPI |
+| NDCG improves, valid online CI excludes the minimum practical CTR effect | Offline-online gap hypothesis | Check experiment validity, exposure bias, candidate protocol, and metric alignment; otherwise mark an underpowered result inconclusive |
 | High NDCG, low coverage | Popularity bias — recommending same items everywhere | Add coverage regularization; use long-tail re-ranking |
 | New user performance much worse | Cold start not addressed | Train hybrid with content features; add onboarding flow |
 | AP/NDCG perfect (> 0.9) | Evaluation leakage — future items in training | Verify temporal split strictly |
@@ -198,17 +212,18 @@ Checklist:
 Items recommended at position 1 receive far more clicks than position 5, regardless of quality.
 If the training data is click logs, the model learns positional effects, not item quality.
 
-**Detection**: Compare CTR by position across all items. If CTR drops by > 50% from position 1 to 5: strong position bias in data.
+**Detection**: CTR by position is descriptive but confounds examination and relevance;
+it cannot identify exposure propensity by itself.
 
 **Fixes**:
-1. **Inverse Propensity Scoring (IPS)**: weight training samples by 1/P(shown at position),
-   where P is estimated from the position CTR curve.
-2. **Unbiased evaluation data**: run a small randomized experiment (show random items to 1% of traffic)
-   to get unbiased click labels.
-3. **Position-aware models**: include position as a feature during training, then fix position = 1
-   during scoring (position debias trick).
+1. **IPS/SNIPS or doubly robust evaluation**: estimate exposure/examination propensities
+   from randomized interventions or an identified logging/click model, not raw position CTR.
+2. Require overlap, clip/stabilize extreme weights, and report effective sample size,
+   variance, and sensitivity to clipping/model choice.
+3. Use approved randomized position swaps or exploration to collect identified evidence.
+   Do not claim debiasing by adding position as a feature and forcing it to one at scoring.
 
-> Reference: Joachims et al. (2017), "Unbiased Learning-to-Rank with Biased Feedback", WSDM.
+*(citation: `foundations/citations.md`)*
 
 ---
 

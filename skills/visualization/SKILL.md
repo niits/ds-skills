@@ -2,12 +2,7 @@
 name: visualization
 description: >
   Make charts that communicate, for data science on Databricks. Use when building any
-  figure — exploratory, publication, or stakeholder presentation. Applies the
-  Storytelling-with-Data (SWD) framework to every chart, then picks the library by
-  output goal: Plotly for interactive EDA, matplotlib/seaborn for publication, matplotlib
-  + NYT theme for presentations, plotnine when the grammar of graphics fits. Covers chart
-  selection, decluttering, pre-attentive emphasis, colorblind-safe palettes, venue sizing,
-  and Databricks rendering.
+  figure — exploratory, publication, or stakeholder presentation.
 allowed-tools: Read Write Edit Bash
 license: MIT license
 metadata:
@@ -31,9 +26,12 @@ Two ideas govern every chart you make:
    matplotlib") is how you end up with a static, hover-less chart in an exploration task
    or an over-engineered grammar-of-graphics pipeline for a one-off figure.
 
-This skill merges three concerns that used to be separate skills — the SWD framework,
-publication/scientific styling (matplotlib/seaborn), and the grammar of graphics
-(plotnine) — into one goal-based reference.
+This skill merges two concerns that used to be separate skills — the SWD framework for
+communicative effectiveness, and the grammar of graphics (plotnine) for declarative chart
+construction — into one goal-based reference. matplotlib/seaborn remain the default renderer for
+static output. Publication-submission mechanics (venue formatting, DPI, journal requirements)
+are out of scope here: this reference is about whether the chart lands the message, not how it
+clears a submission checklist.
 
 ## Library Decision Tree
 
@@ -43,9 +41,11 @@ What is this chart for?
 │   └─ Chart type not supported in Plotly → plotnine → matplotlib
 ├─ Static figure for a paper / journal → matplotlib / seaborn
 │   └─ Chart fits grammar of graphics (faceted, grouped, layered) → plotnine acceptable
-├─ Slide / presentation for stakeholders → matplotlib + NYT theme
+├─ Slide / presentation for stakeholders → matplotlib, slide-first defaults (large fonts, high
+│   contrast, direct labels)
 │   └─ Dashboard / interactive report → Plotly
-└─ Banking domain chart (KS, PSI, vintage, fraud monitoring) → see `banking-visualization` skill
+└─ Binary classifier evaluation chart (ROC, PR, calibration, confusion matrix, KS, PSI) →
+    `references/model-evaluation-viz.md`
 ```
 
 The fallback arrows matter: **goal fixes the primary tool; capability gaps walk you
@@ -74,9 +74,25 @@ The through-line for all three goals below. Each step links to a reference with 
    rate is rising in subprime"); annotate the key moment. → `references/narrative-structure.md`
    and `references/audience-adaptation.md`
 
+Use causal language only when the identification design supports it. Otherwise say
+“is associated with,” “coincides with,” or describe the observed difference. Simplify
+terminology, not evidence: retain material uncertainty, limitations, subgroup harms,
+period, denominator, and source in the title, subtitle, annotation, or caption.
+
 `assets/swd_style.py` operationalizes steps 3–6 for matplotlib: `declutter(ax)`,
 `apply_swd_palette(values, ...)` (one highlighted, rest grey), `annotate_insight(ax, ...)`,
 `insight_title(ax, ...)`, `label_bars(ax, ...)`.
+
+---
+
+## Mandatory Pre-Plot Audit
+
+Before choosing a chart, record: analysis unit/grain; filters and exclusions; time
+window, interval, and timezone; missingness by group/time; duplicate units; weights;
+aggregation level; numerator and denominator for every rate; changing or zero
+denominators; and sample/per-group/bin counts. A chart is `BLOCKED` when its displayed
+denominator, missing-data treatment, or aggregation cannot be explained. Preserve this
+information in the caption, note, accessible table, or adjacent text.
 
 ---
 
@@ -102,46 +118,41 @@ axes, colorblind-safe categorical colors.
 
 ---
 
-## Goal 2: Publication / ML Papers
+## Goal 2: Paper/Journal Figure
 
-**Primary: matplotlib / seaborn.** Static, print-resolution, fully controllable. Use
-the publication style presets and a colorblind-safe palette.
-
-```python
-import sys; sys.path.append("assets")     # or the Databricks DBFS path you uploaded to
-from style_presets import apply_publication_style, set_color_palette, configure_for_journal
-
-apply_publication_style("default")         # clean, professional rcParams
-set_color_palette("okabe_ito")             # colorblind-safe categorical
-configure_for_journal("nature", figure_width="single")   # venue sizing + DPI
-```
-
-**Acceptable: plotnine** when the figure is grammar-of-graphics-compatible — faceted
-panels, grouped aesthetics, layered geoms. A 3×N faceted comparison is cleaner as
-plotnine than as a hand-built matplotlib subplot grid.
-
-Get the details right (these are reject-triggers at review): vector format (PDF/SVG)
-or ≥300 DPI raster, colorblind-safe palette, error bars defined, font sizes legible at
-print size, venue column-width sizing. → `references/publication-guidelines.md`,
-`references/journal-requirements.md`, `references/matplotlib-examples.md`.
+**Primary: matplotlib/seaborn**, with plotnine as a fallback when the chart's structure fits a
+grammar-of-graphics layout (faceted, grouped, multi-layer). This goal is about correct,
+honest chart-type selection and colorblind-safe encoding, not venue formatting — for exact
+dimensions, DPI, and file-format requirements, consult your target venue's author guidelines
+directly (out of scope here, see Overview above). Chart-type patterns (training curves,
+ablations, heatmaps, scaling-law plots, and more) are in `references/data-visualization.md`;
+worked examples for showing uncertainty honestly are in `references/matplotlib-examples.md`;
+color-palette choice and caption practices are in `references/color-palettes.md` and
+`references/style-guide.md`; broader clarity/accuracy/accessibility principles are in
+`references/publication-guidelines.md`. As with every chart in this skill, the SWD framework
+above still applies: state the Big Idea, declutter, and don't bury statistical caveats.
 
 ---
 
 ## Goal 3: Business Presentation
 
-**Primary: matplotlib + NYT theme.** Slide-first defaults: large fonts, 16:9 sizing,
-decluttered spines, title-as-insight.
+**Primary: matplotlib, with slide-first defaults.** Large fonts, wide (16:9) sizing,
+decluttered spines, title-as-insight — apply these directly with rcParams and
+`assets/swd_style.py` rather than a bundled theme file.
 
 ```python
-import sys; sys.path.append("..")          # make `shared` importable (or the DBFS path you uploaded to)
-from shared.nyt_theme import apply_nyt_all, NYT, FIG_SLIDE   # ../shared/nyt_theme.py
-apply_nyt_all()                            # NYT rcParams (also strips top/right spines)
-fig, ax = plt.subplots(figsize=FIG_SLIDE)
-# ... plot, then direct-label instead of a legend, title = the takeaway ...
+import matplotlib.pyplot as plt
+from swd_style import declutter, insight_title, apply_swd_palette, label_bars
+
+plt.rcParams.update({"font.size": 16, "axes.titlesize": 20})
+fig, ax = plt.subplots(figsize=(13.33, 7.5))   # 16:9, presentation scale
+# ... plot, then declutter(ax), insight_title(ax, "the takeaway"),
+#     direct-label instead of a legend ...
 display(fig)
 ```
 
-**Faceted / grouped slide chart → plotnine** with `theme_nyt()` for the same look in
+**Faceted / grouped slide chart → plotnine** with an explicit built-in theme recipe in
+`references/grammar-of-graphics.md`. For the same look in
 grammar-of-graphics form. **Dashboard / interactive report → Plotly** so stakeholders
 can drill in themselves.
 
@@ -153,19 +164,19 @@ non-essential greyed, the insight in the title.
 ## Grammar of Graphics Reference (plotnine)
 
 Use plotnine when declarative layered structure fits — faceted, grouped, multi-layer
-statistical charts. Full geom / stat / scale / facet / theme API, the `theme_nyt()`
-integration, Databricks rendering, and "when NOT to use plotnine" are in
+statistical charts. Full geom / stat / scale / facet / theme API, a slide-theme
+recipe, Databricks rendering, and "when NOT to use plotnine" are in
 `references/grammar-of-graphics.md`.
 
-## Publication Styling Reference (matplotlib)
+## Color and Statistical-Honesty Reference (matplotlib figures)
 
-Venue sizing, colorblind palettes (Okabe-Ito, Tol, Wong, viridis family), spines,
-error bars, and multi-panel patterns are in `references/publication-guidelines.md`,
-`references/journal-requirements.md`, `references/color-palettes.md`,
-`references/style-guide.md`, and `references/matplotlib-examples.md`. The `.mplstyle`
-files in `assets/` (`nature`, `publication`, `presentation`, `nyt`) and
-`assets/style_presets.py` (`apply_publication_style`, `set_color_palette`,
-`configure_for_journal`) implement these.
+Colorblind-safe palette choice (Okabe-Ito, Tol, viridis family), when to use sequential vs.
+diverging vs. categorical color, showing uncertainty honestly, avoiding distorted/misleading
+encodings, and chart-type patterns for common ML-paper figures are in
+`references/color-palettes.md`, `references/style-guide.md`,
+`references/publication-guidelines.md`, `references/matplotlib-examples.md`, and
+`references/data-visualization.md`. `assets/color_palettes.py` (`apply_palette`, `get_palette`)
+implements the palette choices in code.
 
 ---
 
@@ -174,8 +185,27 @@ files in `assets/` (`nature`, `publication`, `presentation`, `nyt`) and
 - Render any matplotlib/plotnine figure inline with `display(fig)` (call `p.draw()`
   first for a plotnine object to get the `Figure`). Plotly renders with `fig.show()`.
 - Upload `assets/` helpers to DBFS (or add the repo path to `sys.path`) before
-  importing `style_presets` / `swd_style`. Verify the upload before importing.
+  importing `swd_style` / `color_palettes`. Verify the upload before importing.
 - Use explicit, reproducible figure sizes; do not rely on the notebook's default DPI.
+- For interactive output, use responsive sizing and test at roughly 360 px width; do
+  not put essential information only in hover. Check keyboard/focus behavior where the
+  platform supports it and use touch-sized controls.
+- Every delivered chart needs a concise text takeaway, meaningful alt text in the
+  delivery surface, and an accessible adjacent data table or downloadable CSV.
+- Colorblind-safe palettes are not sufficient by themselves: use redundant markers,
+  line styles, labels, or hatches and verify text/background contrast.
+
+Minimal delivery bundle:
+
+```python
+from pathlib import Path
+
+out = Path("figures/model_comparison")
+out.parent.mkdir(parents=True, exist_ok=True)
+fig.savefig(out.with_suffix(".png"), dpi=300)
+plotted_data.to_csv(out.with_suffix(".csv"), index=False)
+# Add the takeaway and alt text in the notebook/report element that embeds the image.
+```
 
 ---
 
@@ -188,21 +218,14 @@ files in `assets/` (`nature`, `publication`, `presentation`, `nyt`) and
 
 ### references/ — styling & grammar
 - `grammar-of-graphics.md` — plotnine geom/stat/scale/facet/theme API
-- `publication-guidelines.md`, `journal-requirements.md`, `style-guide.md`
+- `publication-guidelines.md`, `style-guide.md`
 - `color-palettes.md`, `matplotlib-examples.md`, `data-visualization.md`
 
 ### references/ — general analysis charts
-- `model-evaluation-viz.md` — ROC, PR, calibration, confusion-matrix charts
-- `causal-inference-charts.md` — uplift, DiD, event-study charts
+- `model-evaluation-viz.md` — ROC, PR, calibration, confusion-matrix, KS, PSI charts
+- `causal-inference-charts.md` — DiD, event-study charts
 
 ### assets/
-- `swd_style.py` — SWD helpers (declutter, palette, annotate, insight title)
-- `style_presets.py`, `color_palettes.py` — publication rcParams & colorblind palettes
-- `nature.mplstyle`, `publication.mplstyle`, `presentation.mplstyle`, `nyt.mplstyle`
-
-**Cross-skill:** `../banking-visualization/` for domain charts (KS, PSI, vintage,
-fraud, customer analytics) and regulated-audience guidance. `../shared/nyt_theme.py`
-for the unified NYT style across matplotlib, Plotly, and plotnine (`apply_nyt_all()`,
-`theme_nyt()`, `NYT`, `FIG_SLIDE`). `../plotnine-visualization/` for the full plotnine
-API (`import plotnine as p9`) — geoms, stats, scales, facets, themes — when a chart fits
-the grammar of graphics but the SWD communication patterns here still apply.
+- `swd_style.py` — SWD helpers (declutter, palette, annotate, insight title, label_bars,
+  highlight_region, fmt_pct)
+- `color_palettes.py` — colorblind-safe palettes (Okabe-Ito, Tol) and colormap choice lists

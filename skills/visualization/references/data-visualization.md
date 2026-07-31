@@ -1,127 +1,34 @@
-# Data Visualization Patterns for ML Papers
+# Chart-Type Patterns for ML Papers
 
-Complete pattern library for generating polished, distinctive figures.
+Working code patterns for the encoding/chart-selection decisions that come up repeatedly in ML
+papers: which chart form fits the analytical question, and how to keep the encoding honest.
 
-## Setup and Imports
+## Setup
 
 ```python
 import matplotlib.pyplot as plt
-import matplotlib as mpl
 import numpy as np
 import seaborn as sns
-from matplotlib.ticker import MaxNLocator, FuncFormatter
-
-# --- Publication defaults (polished, not generic) ---
-plt.rcParams.update({
-    "font.family": "serif",
-    "font.serif": ["Times New Roman", "DejaVu Serif"],
-    "font.size": 10,
-    "axes.titlesize": 11,
-    "axes.titleweight": "bold",
-    "axes.labelsize": 10,
-    "axes.labelweight": "medium",
-    "xtick.labelsize": 8.5,
-    "ytick.labelsize": 8.5,
-    "legend.fontsize": 8.5,
-    "legend.frameon": False,
-    "figure.dpi": 300,
-    "savefig.dpi": 300,
-    "savefig.bbox": "tight",
-    "savefig.pad_inches": 0.08,
-    "axes.spines.top": False,
-    "axes.spines.right": False,
-    "axes.linewidth": 0.8,
-    "xtick.major.width": 0.8,
-    "ytick.major.width": 0.8,
-    "axes.grid": True,
-    "grid.alpha": 0.15,        # Very subtle — guides the eye without competing
-    "grid.linewidth": 0.6,
-    "grid.linestyle": "-",      # Solid but faint, not dashed (less visual noise)
-    "lines.linewidth": 1.8,
-    "lines.markersize": 5,
-    "patch.edgecolor": "white",  # White borders between bars (cleaner look)
-    "patch.linewidth": 0.5,
-})
 ```
 
-## Color Palettes
+### Colors
 
-### "Ocean Dusk" (default — professional, distinctive)
+Use a colorblind-safe categorical palette, not the library default. See
+`references/color-palettes.md` and `assets/color_palettes.py` for the full set and rationale.
 
 ```python
-COLORS = {
-    "teal":    "#264653",   # deep, authoritative
-    "cyan":    "#2A9D8F",   # fresh, modern
-    "gold":    "#E9C46A",   # warm accent
-    "orange":  "#F4A261",   # energetic
-    "coral":   "#E76F51",   # standout (use for "our method")
-    "blue":    "#0072B2",   # Okabe-Ito accessible blue
-    "sky":     "#56B4E9",   # Okabe-Ito accessible sky
-    "gray":    "#8C8C8C",   # neutral baseline
-}
-COLOR_LIST = list(COLORS.values())
-
-# Semantic colors for highlighting
-OUR_COLOR = "#E76F51"       # coral — warm, draws attention
-BASELINE_COLOR = "#B0BEC5"  # cool gray — recedes
-BEST_BASELINE = "#264653"   # deep teal — strongest competitor
+OKABE_ITO_LIST = ['#E69F00', '#56B4E9', '#009E73', '#F0E442',
+                   '#0072B2', '#D55E00', '#CC79A7', '#000000']
+ACCENT = '#D55E00'    # vermillion — "our method" / the one highlighted series
+BASELINE = '#8C8C8C'  # gray — recedes, use for non-highlighted comparisons
 ```
 
-### "Okabe-Ito" (maximum colorblind safety)
+### Colormaps for Continuous Data
 
 ```python
-OKABE_ITO = ["#E69F00", "#56B4E9", "#009E73", "#F0E442",
-             "#0072B2", "#D55E00", "#CC79A7", "#000000"]
-```
-
-### Sequential Palettes (for heatmaps)
-
-```python
-# Warm sequential (more interesting than plain Blues)
-cmap_warm = sns.color_palette("YlOrRd", as_cmap=True)
-
-# Cool sequential (clean, professional)
-cmap_cool = sns.light_palette("#264653", as_cmap=True)
-
-# Diverging (for correlation/difference, centered at 0)
-cmap_div = sns.color_palette("RdBu_r", as_cmap=True)
-
-# Perceptually uniform (for continuous scientific data)
-cmap_viridis = plt.cm.viridis
-```
-
-### Making Charts Visually Distinctive
-
-Common mistakes that make charts look "boring" and their fixes:
-
-| Boring Default | Better Version |
-|---------------|---------------|
-| Black lines, no markers | Colored lines + distinct markers per method |
-| No shading around lines | Confidence bands with `fill_between(alpha=0.12)` |
-| Generic blue bars | "Ocean Dusk" palette + white edge between bars |
-| All same color baselines | Gray baselines + coral highlight for "ours" |
-| Dashed grid lines | Very faint solid grid (`alpha=0.15`) |
-| Default tight spacing | `pad_inches=0.08`, generous axis margins |
-| No value labels on bars | Small value text above each bar |
-| Box legend with frame | Frameless legend, positioned inside plot area |
-
-## Figure Sizes by Venue
-
-```python
-# NeurIPS / ICLR (single column, 5.5in text width)
-FIG_NEURIPS_SINGLE = (5.5, 3.5)
-FIG_NEURIPS_HALF = (2.65, 2.5)
-
-# ICML (two column, 6.75in text width)
-FIG_ICML_SINGLE = (3.25, 2.5)
-FIG_ICML_FULL = (6.75, 2.5)
-
-# ACL (two column, 6.8in text width)
-FIG_ACL_SINGLE = (3.3, 2.5)
-FIG_ACL_FULL = (6.8, 3.0)
-
-# General safe default
-FIG_DEFAULT = (5, 3.5)
+cmap_sequential = sns.color_palette("YlOrRd", as_cmap=True)  # intensity, one direction
+cmap_diverging = sns.color_palette("RdBu_r", as_cmap=True)   # centered at 0 (correlation, delta)
+cmap_uniform = plt.cm.viridis                                 # perceptually uniform, general use
 ```
 
 ## Chart Type 1: Training Curves (Line Plot)
@@ -129,17 +36,18 @@ FIG_DEFAULT = (5, 3.5)
 The most common figure in ML papers. Shows loss/accuracy over training steps.
 
 ```python
-def plot_training_curves(data, metric="Loss", save_path="figures/fig_training.pdf"):
+def plot_training_curves(data, metric="Loss", figsize=(4, 3)):
     """
     data: dict of {method_name: (steps_array, values_array)}
+    figsize: adjust to your target output width
     """
-    fig, ax = plt.subplots(figsize=FIG_ICML_SINGLE)
+    fig, ax = plt.subplots(figsize=figsize)
 
     markers = ["o", "s", "^", "D", "v", "P"]
     for i, (method, (steps, values)) in enumerate(data.items()):
         ax.plot(steps, values,
                 label=method,
-                color=COLOR_LIST[i],
+                color=OKABE_ITO_LIST[i % len(OKABE_ITO_LIST)],
                 linewidth=1.5,
                 marker=markers[i % len(markers)],
                 markevery=max(1, len(steps) // 8),
@@ -153,29 +61,34 @@ def plot_training_curves(data, metric="Loss", save_path="figures/fig_training.pd
     if "loss" in metric.lower():
         ax.set_yscale("log")
 
-    fig.savefig(save_path)
-    fig.savefig(save_path.replace(".pdf", ".png"), dpi=300)
-    plt.close(fig)
+    return fig, ax
 ```
 
-### Shaded Confidence Intervals
+### Shaded Variability or Uncertainty
 
 ```python
-ax.plot(steps, mean_values, color=COLOR_LIST[0], linewidth=1.5, label="Our Method")
+ax.plot(steps, mean_values, color=OKABE_ITO_LIST[0], linewidth=1.5, label="Our Method")
 ax.fill_between(steps, mean_values - std_values, mean_values + std_values,
-                color=COLOR_LIST[0], alpha=0.2)
+                 color=OKABE_ITO_LIST[0], alpha=0.2)
 ```
+
+This is a mean +/- 1 SD band, not a confidence interval. For a CI, compute it across
+independent replicates/seeds with a justified bootstrap or sampling model and report `n`.
 
 ## Chart Type 2: Grouped Bar Chart (Ablation / Comparison)
 
 ```python
-def plot_ablation(categories, methods_data, ylabel="Accuracy (%)",
-                  save_path="figures/fig_ablation.pdf"):
+def plot_ablation(categories, methods_data, errors_data=None, ylabel="Accuracy (%)", figsize=(6, 3)):
     """
     categories: list of benchmark names
     methods_data: dict of {method_name: list_of_scores}
+    errors_data: optional dict of {method_name: list_of_errors}, same shape as methods_data
+                 (each entry is a +/- interval half-width per category, or a (2, n_cats) array
+                 for asymmetric CIs). Pass replicate-level results or estimates plus intervals
+                 here; display uncertainty and independent-replicate n. Prespecify any
+                 highlighted method.
     """
-    fig, ax = plt.subplots(figsize=FIG_ICML_FULL)
+    fig, ax = plt.subplots(figsize=figsize)
 
     n_methods = len(methods_data)
     n_cats = len(categories)
@@ -184,8 +97,9 @@ def plot_ablation(categories, methods_data, ylabel="Accuracy (%)",
 
     for i, (method, scores) in enumerate(methods_data.items()):
         offset = (i - n_methods / 2 + 0.5) * width
-        bars = ax.bar(x + offset, scores, width * 0.9,
-                      label=method, color=COLOR_LIST[i])
+        yerr = errors_data.get(method) if errors_data else None
+        bars = ax.bar(x + offset, scores, width * 0.9, yerr=yerr, capsize=3,
+                      label=method, color=OKABE_ITO_LIST[i % len(OKABE_ITO_LIST)])
         # Value labels on top
         for bar, score in zip(bars, scores):
             ax.text(bar.get_x() + bar.get_width() / 2, bar.get_height() + 0.3,
@@ -197,15 +111,13 @@ def plot_ablation(categories, methods_data, ylabel="Accuracy (%)",
     ax.legend(frameon=False, ncol=min(n_methods, 4), loc="upper right")
     ax.set_ylim(bottom=0)
 
-    fig.savefig(save_path)
-    plt.close(fig)
+    return fig, ax
 ```
 
 ## Chart Type 3: Heatmap (Attention / Confusion Matrix)
 
 ```python
-def plot_heatmap(matrix, xlabels, ylabels, title="",
-                 save_path="figures/fig_heatmap.pdf", fmt=".2f", cmap="Blues"):
+def plot_heatmap(matrix, xlabels, ylabels, title="", fmt=".2f", cmap="Blues"):
     """
     matrix: 2D numpy array
     """
@@ -220,8 +132,7 @@ def plot_heatmap(matrix, xlabels, ylabels, title="",
     if title:
         ax.set_title(title, pad=12)
 
-    fig.savefig(save_path)
-    plt.close(fig)
+    return fig, ax
 ```
 
 ### Diverging Heatmap (correlation)
@@ -234,11 +145,10 @@ sns.heatmap(corr_matrix, annot=True, fmt=".2f", cmap="RdBu_r",
 ## Chart Type 4: Scatter Plot
 
 ```python
-def plot_scatter(x, y, labels=None, xlabel="", ylabel="",
-                 save_path="figures/fig_scatter.pdf"):
-    fig, ax = plt.subplots(figsize=FIG_ICML_SINGLE)
+def plot_scatter(x, y, labels=None, xlabel="", ylabel="", figsize=(4, 3.5)):
+    fig, ax = plt.subplots(figsize=figsize)
 
-    scatter = ax.scatter(x, y, c=COLOR_LIST[0], s=30, alpha=0.7, edgecolors="white", linewidth=0.5)
+    ax.scatter(x, y, c=OKABE_ITO_LIST[0], s=30, alpha=0.7, edgecolors="white", linewidth=0.5)
 
     if labels is not None:
         for i, label in enumerate(labels):
@@ -248,8 +158,7 @@ def plot_scatter(x, y, labels=None, xlabel="", ylabel="",
     ax.set_xlabel(xlabel)
     ax.set_ylabel(ylabel)
 
-    fig.savefig(save_path)
-    plt.close(fig)
+    return fig, ax
 ```
 
 ### Scatter with regression line
@@ -258,24 +167,30 @@ def plot_scatter(x, y, labels=None, xlabel="", ylabel="",
 from scipy import stats
 slope, intercept, r_value, p_value, std_err = stats.linregress(x, y)
 line_x = np.linspace(min(x), max(x), 100)
-ax.plot(line_x, slope * line_x + intercept, color=COLOR_LIST[1],
+ax.plot(line_x, slope * line_x + intercept, color=OKABE_ITO_LIST[1],
         linestyle="--", linewidth=1, label=f"$R^2$={r_value**2:.3f}")
 ```
 
 ## Chart Type 5: Horizontal Bar (Leaderboard)
 
+Sorted, with the subject of the message accented and everything else grayed — the "one accent,
+rest gray" pattern from `pre-attentive-attributes.md` applied to a ranked comparison.
+
 ```python
-def plot_leaderboard(models, scores, highlight_idx=-1, xlabel="Score",
-                     save_path="figures/fig_leaderboard.pdf"):
-    """highlight_idx: index of 'our method' to highlight"""
-    fig, ax = plt.subplots(figsize=FIG_ICML_SINGLE)
+def plot_leaderboard(models, scores, errors=None, highlight_idx=-1, xlabel="Score", figsize=(4, 3)):
+    """
+    errors: optional list of +/- interval half-widths, same length as scores (or a (2, n)
+    array for asymmetric CIs). Use estimates with intervals; highlight only by a
+    prespecified criterion.
+    """
+    fig, ax = plt.subplots(figsize=figsize)
 
     y_pos = np.arange(len(models))
-    colors = [COLORS["gray"]] * len(models)
+    colors = [BASELINE] * len(models)
     if highlight_idx >= 0:
-        colors[highlight_idx] = COLORS["red"]
+        colors[highlight_idx] = ACCENT
 
-    bars = ax.barh(y_pos, scores, color=colors, height=0.6)
+    bars = ax.barh(y_pos, scores, xerr=errors, capsize=3, color=colors, height=0.6)
     ax.set_yticks(y_pos)
     ax.set_yticklabels(models)
     ax.set_xlabel(xlabel)
@@ -286,17 +201,17 @@ def plot_leaderboard(models, scores, highlight_idx=-1, xlabel="Score",
         ax.text(bar.get_width() + 0.3, bar.get_y() + bar.get_height() / 2,
                 f"{score:.1f}", va="center", fontsize=8)
 
-    fig.savefig(save_path)
-    plt.close(fig)
+    return fig, ax
 ```
 
 ## Chart Type 6: Multi-Panel Figure
 
 ```python
-def plot_multi_panel(data_per_panel, panel_titles, save_path="figures/fig_panels.pdf"):
+def plot_multi_panel(data_per_panel, panel_titles, figsize_per_panel=(3.25, 2.5)):
     """Create a 1xN figure with shared styling."""
     n = len(data_per_panel)
-    fig, axes = plt.subplots(1, n, figsize=(3.25 * n, 2.5), sharey=True)
+    w, h = figsize_per_panel
+    fig, axes = plt.subplots(1, n, figsize=(w * n, h), sharey=True)
     if n == 1:
         axes = [axes]
 
@@ -310,8 +225,7 @@ def plot_multi_panel(data_per_panel, panel_titles, save_path="figures/fig_panels
     # Shared x-label
     fig.supxlabel("Training Steps", fontsize=11)
     fig.tight_layout()
-    fig.savefig(save_path)
-    plt.close(fig)
+    return fig, axes
 ```
 
 ### Subplot label convention (a, b, c)
@@ -325,51 +239,67 @@ for i, ax in enumerate(axes):
 ## Chart Type 7: Violin / Box Plot (Distribution)
 
 ```python
-def plot_distributions(data_dict, ylabel="Score",
-                       save_path="figures/fig_distributions.pdf"):
+def plot_distributions(data_dict, ylabel="Score", figsize=(4, 3)):
     """data_dict: {method_name: array_of_values}"""
-    fig, ax = plt.subplots(figsize=FIG_ICML_SINGLE)
+    fig, ax = plt.subplots(figsize=figsize)
 
     positions = range(len(data_dict))
     parts = ax.violinplot(list(data_dict.values()), positions=positions,
                           showmeans=True, showmedians=True)
 
     for i, pc in enumerate(parts["bodies"]):
-        pc.set_facecolor(COLOR_LIST[i])
+        pc.set_facecolor(OKABE_ITO_LIST[i % len(OKABE_ITO_LIST)])
         pc.set_alpha(0.7)
 
     ax.set_xticks(positions)
     ax.set_xticklabels(list(data_dict.keys()))
     ax.set_ylabel(ylabel)
 
-    fig.savefig(save_path)
-    plt.close(fig)
+    return fig, ax
 ```
 
 ## Chart Type 8: Stacked Horizontal Bar
 
-Preferred over pie charts in ML papers for showing proportions:
+Preferred over pie charts for showing proportions — position and length are easier to compare
+precisely than angle/area, and it composes cleanly across multiple categories.
 
 ```python
-def plot_stacked_bar(categories, segments, segment_labels, colors=None,
-                     save_path="figures/fig_stacked.pdf"):
+def plot_stacked_bar(categories, segments, segment_labels, colors=None, figsize=(6, 3)):
     """
     categories: list of row labels
     segments: list of lists (each inner list = values per segment)
+
+    CAUTION: colors wrap (via modulo) past len(colors) — with the default
+    OKABE_ITO_LIST that's 8 colors. Stacked-bar segment counts routinely exceed 8
+    (unlike training-curve/ablation/violin series counts), so two segments in the
+    same bar can silently get the same color. Pass an explicit `colors` list sized
+    to your segment count, or collapse small segments into an "Other" bucket, once
+    you're past ~8 segments.
     """
-    fig, ax = plt.subplots(figsize=FIG_ICML_FULL)
+    fig, ax = plt.subplots(figsize=figsize)
     y_pos = np.arange(len(categories))
-    colors = colors or COLOR_LIST
+    colors = colors or OKABE_ITO_LIST
+    from matplotlib.colors import to_rgb
+
+    def label_color(fill):
+        rgb = np.array(to_rgb(fill))
+        linear = np.where(rgb <= 0.04045, rgb / 12.92,
+                          ((rgb + 0.055) / 1.055) ** 2.4)
+        luminance = np.dot(linear, [0.2126, 0.7152, 0.0722])
+        black_contrast = (luminance + 0.05) / 0.05
+        white_contrast = 1.05 / (luminance + 0.05)
+        return "black" if black_contrast >= white_contrast else "white"
 
     left = np.zeros(len(categories))
     for i, (seg_values, label) in enumerate(zip(segments, segment_labels)):
+        color = colors[i % len(colors)]
         ax.barh(y_pos, seg_values, left=left, height=0.6,
-                label=label, color=colors[i])
-        # Percentage labels
+                label=label, color=color)
+        text_color = label_color(color)
         for j, v in enumerate(seg_values):
             if v > 5:  # Only label segments > 5%
                 ax.text(left[j] + v / 2, y_pos[j], f"{v:.0f}%",
-                        ha="center", va="center", fontsize=7, color="white")
+                        ha="center", va="center", fontsize=7, color=text_color)
         left += seg_values
 
     ax.set_yticks(y_pos)
@@ -378,20 +308,21 @@ def plot_stacked_bar(categories, segments, segment_labels, colors=None,
     ax.legend(frameon=False, loc="upper right", ncol=2)
     ax.invert_yaxis()
 
-    fig.savefig(save_path)
-    plt.close(fig)
+    return fig, ax
 ```
 
 ## Chart Type 9: Scaling Law Plot (Log-Log)
 
-Common in LLM papers for compute/data/parameter scaling:
+Common in LLM papers for compute/data/parameter scaling. Log-log axes turn a power law into a
+straight line — the correct encoding for "does this relationship follow N^k," not a cosmetic
+choice.
 
 ```python
 def plot_scaling(sizes, metrics, fit_line=True, xlabel="Parameters",
-                 ylabel="Loss", save_path="figures/fig_scaling.pdf"):
-    fig, ax = plt.subplots(figsize=FIG_ICML_SINGLE)
+                 ylabel="Loss", figsize=(4, 3)):
+    fig, ax = plt.subplots(figsize=figsize)
 
-    ax.scatter(sizes, metrics, color=COLOR_LIST[0], s=40, zorder=5)
+    ax.scatter(sizes, metrics, color=OKABE_ITO_LIST[0], s=40, zorder=5)
 
     if fit_line:
         log_sizes = np.log(sizes)
@@ -399,7 +330,7 @@ def plot_scaling(sizes, metrics, fit_line=True, xlabel="Parameters",
         coeffs = np.polyfit(log_sizes, log_metrics, 1)
         fit_x = np.linspace(min(log_sizes), max(log_sizes), 100)
         ax.plot(np.exp(fit_x), np.exp(np.polyval(coeffs, fit_x)),
-                color=COLOR_LIST[1], linestyle="--", linewidth=1.5,
+                color=OKABE_ITO_LIST[1], linestyle="--", linewidth=1.5,
                 label=f"$L \\propto N^{{{coeffs[0]:.2f}}}$")
 
     ax.set_xscale("log")
@@ -409,54 +340,12 @@ def plot_scaling(sizes, metrics, fit_line=True, xlabel="Parameters",
     if fit_line:
         ax.legend(frameon=False)
 
-    fig.savefig(save_path)
-    plt.close(fig)
-```
-
-## Export Best Practices
-
-### Always Export Both Formats
-
-```python
-# PDF for LaTeX (vector, crisp at any zoom)
-fig.savefig("figures/fig_name.pdf", bbox_inches="tight", pad_inches=0.05)
-
-# PNG as backup (raster, for README/slides)
-fig.savefig("figures/fig_name.png", dpi=300, bbox_inches="tight", pad_inches=0.05)
-```
-
-### LaTeX Font Matching
-
-```python
-# Option A: Use LaTeX renderer (requires texlive installation)
-plt.rcParams["text.usetex"] = True
-plt.rcParams["font.family"] = "serif"
-
-# Option B: Match sans-serif style without LaTeX
-plt.rcParams["text.usetex"] = False
-plt.rcParams["font.family"] = "sans-serif"
-plt.rcParams["font.sans-serif"] = ["Helvetica", "Arial", "DejaVu Sans"]
-
-# Option C: Computer Modern (default LaTeX font, no LaTeX needed)
-plt.rcParams["font.family"] = "serif"
-plt.rcParams["font.serif"] = ["cmr10"]
-plt.rcParams["axes.formatter.use_mathtext"] = True
-```
-
-### Math in Labels
-
-```python
-# LaTeX math in labels (works with text.usetex=True)
-ax.set_xlabel(r"$\alpha$ (learning rate)")
-ax.set_ylabel(r"$\mathcal{L}$ (loss)")
-
-# Without usetex, use mathtext
-ax.set_xlabel(r"$\alpha$ (learning rate)")  # Still works for simple math
+    return fig, ax
 ```
 
 ## Seaborn Integration
 
-Seaborn is built on matplotlib and useful for statistical plots:
+Seaborn is built on matplotlib and useful for statistical plots.
 
 ```python
 # Use seaborn styling with matplotlib control
@@ -465,44 +354,11 @@ sns.set_theme(style="whitegrid", font_scale=0.9, rc={
     "axes.spines.right": False,
 })
 
-# Pair plot (for exploratory analysis, not usually in papers)
-g = sns.pairplot(df, hue="method", palette=COLOR_LIST[:3])
+# Pair plot (exploratory: many pairwise relationships at once)
+g = sns.pairplot(df, hue="method", palette=OKABE_ITO_LIST[:3])
 
-# Joint plot (scatter + marginal distributions)
+# Joint plot (scatter + marginal distributions — shows the relationship and each
+# variable's shape in one view)
 g = sns.jointplot(data=df, x="param_count", y="accuracy",
-                  kind="reg", color=COLOR_LIST[0])
-```
-
-## Reproducibility Script Template
-
-Every figure should have a self-contained generation script:
-
-```python
-#!/usr/bin/env python3
-"""Generate Figure X: [description].
-
-Usage: python figures/gen_fig_name.py
-Output: figures/fig_name.pdf, figures/fig_name.png
-"""
-import matplotlib.pyplot as plt
-import numpy as np
-import os
-
-# --- Publication styling ---
-plt.rcParams.update({...})  # Full rcParams block
-
-# --- Data ---
-# Either inline data or load from CSV
-data = {...}
-
-# --- Plot ---
-fig, ax = plt.subplots(figsize=(3.25, 2.5))
-# ... plotting code ...
-
-# --- Save ---
-out_dir = os.path.dirname(os.path.abspath(__file__))
-fig.savefig(os.path.join(out_dir, "fig_name.pdf"))
-fig.savefig(os.path.join(out_dir, "fig_name.png"), dpi=300)
-plt.close(fig)
-print("Saved: fig_name.pdf, fig_name.png")
+                  kind="reg", color=OKABE_ITO_LIST[0])
 ```

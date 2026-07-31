@@ -34,7 +34,8 @@ This is the standard output chart for any regression-based causal estimate.
 
 **Key design decisions:**
 - Forest plot convention: wider (lighter) bar = 95% CI; narrower (darker) bar = 90% CI
-- Color rows where the CI excludes the null in the accent color; gray rows where it includes the null
+- Use neutral color for all estimates; reserve accent for a prespecified focal estimand,
+  not whether an interval crosses the null. State multiplicity handling when relevant.
 - Annotate each point estimate value to the right of its CI bar
 - Add a vertical dashed reference line at the null value
 
@@ -57,6 +58,7 @@ The audience cannot evaluate credibility without seeing the pre-treatment trends
 - `control_means` — outcome means for the control group at each period
 - `treatment_period` — the period when treatment begins (used as the vertical divider)
 - `treated_label`, `control_label` — group names for the legend
+- group-period counts, weights, composition diagnostics, and uncertainty intervals
 
 **Key design decisions:**
 - Both lines in equal weight before the treatment divider (assumption check window)
@@ -65,9 +67,11 @@ The audience cannot evaluate credibility without seeing the pre-treatment trends
 - Label the pre-treatment window as the assumption check region
 
 **Reading the pre-treatment window:**
-- Parallel lines → assumption is consistent with the data (strengthens credibility)
-- Diverging pre-treatment trends → assumption is violated; DiD estimate is biased
-- Parallel but with a level difference → fine, DiD differences out the level
+- Similar pre-trends are consistent with, but do not prove, parallel counterfactual trends
+- Divergence is a warning that requires composition, specification, and design checks;
+  visual pre-trends alone do not quantify bias
+- A level difference is not itself fatal, but it does not establish parallel
+  counterfactual trends; check composition stability and precision
 
 ---
 
@@ -75,7 +79,7 @@ The audience cannot evaluate credibility without seeing the pre-treatment trends
 
 **Use when:** Estimating treatment effects for each period relative to treatment,
 rather than a single post-treatment average. This is the modern standard for DiD.
-Also serves as the formal parallel trends test (pre-period coefficients ≈ 0).
+Pre-period coefficients are diagnostics with limited power, not a formal proof of parallel trends.
 
 **Audience:** Practitioners, committee
 
@@ -84,6 +88,10 @@ Also serves as the formal parallel trends test (pre-period coefficients ≈ 0).
   (e.g. `[-4, -3, -2, -1, 0, 1, 2, 3, 4]`; period −1 is typically the omitted reference period)
 - `estimates` — DiD coefficient at each relative period
 - `cis` — list of `(lower, upper)` 95% CI tuples for each period
+- estimator valid for treatment-timing heterogeneity and a clustered/dependence-aware interval method
+
+Exclude the omitted reference period from estimate/CI arrays, or plot it explicitly at
+zero without a CI. Use simultaneous bands or a joint pre-trend test alongside pointwise intervals.
 
 **Key design decisions:**
 - Pre-period (t < 0): gray color with shaded CI band — these should be ≈ 0 if the parallel trends assumption holds
@@ -96,12 +104,11 @@ Also serves as the formal parallel trends test (pre-period coefficients ≈ 0).
 ## 4. RDD Binned Scatter — Regression Discontinuity
 
 **Use when:** Visualizing a Regression Discontinuity Design result.
-Shows the relationship between the running variable and the outcome,
-with the discontinuity at the cutoff as the visual evidence of the causal effect.
+Shows the relationship between the running variable and outcome near the cutoff. The
+visual is a diagnostic companion to a design-based estimate, not the causal estimate itself.
 
 **Why bin:** Raw scatter plots are noisy and obscure the discontinuity.
-Binning reveals the smooth conditional expectation on each side.
-The jump at the cutoff is the visual estimate of the local treatment effect.
+Binning choices affect appearance and must be reported with sensitivity checks.
 
 **Audience:** Practitioners, committee
 
@@ -109,13 +116,14 @@ The jump at the cutoff is the visual estimate of the local treatment effect.
 - `running_var` — array of the running/forcing variable (e.g. credit score, income, age at cutoff)
 - `outcome` — array of the outcome variable
 - `cutoff` — the treatment threshold (scalar)
-- `n_bins` *(optional)* — number of bins per side; default 20–30
-- `bandwidth` *(optional)* — if provided, restrict the plot to observations within ± bandwidth of the cutoff
+- transparent bin rule and sensitivity alternatives
+- justified bandwidth for bias-corrected local-polynomial estimation on raw observations
 
 **Key design decisions:**
-- Bin observations into equal-width bins on each side of the cutoff; compute bin means
+- Show transparent bins for visualization and local-polynomial fits with robust 95% CIs
 - Plot bin means as scatter points (control side = gray, treatment side = accent)
-- Fit a linear regression line on each side separately; overlay on the bin scatter
+- Report bandwidth/functional-form sensitivity, density/manipulation checks, and
+  predetermined-covariate continuity
 - Add a vertical dashed line at the cutoff
 - Annotate the estimated jump at the cutoff with an arrow and value
 
@@ -134,11 +142,44 @@ Lack of overlap means the causal estimate relies on extrapolation, not compariso
 - `ps_control` — array of propensity scores for control units (values 0–1)
 
 **Key design decisions:**
-- Mirrored histogram: treated group plotted above the x-axis, control group plotted below (reflected)
+- Mirrored normalized/weighted densities with common bins; show raw group sizes separately
 - Use the same bin edges (0 to 1 in equal steps) for both groups so the distributions are visually comparable
 - Shade the common support region (overlap between the two distributions) in a distinct color
-- Y-axis labels should show absolute counts (not negative) on both sides of the axis
+- Report target population, effective sample size, extreme weights, and trimming rules
 - Good overlap = wide common support; poor overlap = one distribution concentrated at extremes with no counterpart
+- Overlap is necessary for the stated population but does not establish no unmeasured confounding
+
+---
+
+## 6. IV First-Stage Diagnostic
+
+**Use when:** Validating instrument strength/relevance before presenting a 2SLS or IV
+estimate. This is an assumption diagnostic — show it before the main estimate, the same
+way a DiD chart leads with parallel trends and an RDD chart leads with a density/continuity
+check.
+
+**Audience:** Practitioners, committee
+
+**Required inputs:**
+- `instrument` — array of the instrument variable
+- `endogenous_regressor` — array of the endogenous regressor the instrument predicts
+- `first_stage_f_stat` — the first-stage F-statistic (scalar)
+- `first_stage_coefficient` — the first-stage coefficient estimate, with CI
+- a stated weak-instrument threshold (e.g. the Staiger-Stock F > 10 rule-of-thumb, or the
+  relevant Stock-Yogo critical value for the number of instruments/endogenous regressors) —
+  state your policy's chosen value explicitly, the same caveat this skill uses elsewhere for
+  PSI-style thresholds; there is no universal cutoff that fits every setting
+
+**Key design decisions:**
+- Bar or scatter of instrument vs. endogenous regressor, with the first-stage F-statistic
+  annotated directly on the chart (not buried in a caption)
+- Visually flag when F falls below the stated weak-instrument threshold (e.g. accent color
+  or a reference line at the threshold)
+- Report the first-stage coefficient with its CI alongside the F-statistic — a large F with
+  a near-zero coefficient is still a weak/uninformative first stage in practice
+- This chart can only speak to instrument relevance (the first-stage relationship). It
+  cannot verify the exclusion restriction — state that as a caveat, since a strong first
+  stage does not make the instrument valid
 
 ---
 
@@ -169,8 +210,8 @@ on whether they see the assumptions first.
    Event study (DiD) or subgroup coefficient plot
 
 6. State the conclusion as a Big Idea
-   "The intervention caused a [X unit / X%] [increase/decrease] in [outcome]
-    (95% CI: [lo, hi]), statistically [significant/not significant]"
+   If identification assumptions are defensible: "The estimated effect is [X]
+   (95% CI: [lo, hi]) under [design/assumptions]." Otherwise describe the association.
 ```
 
 ---
@@ -181,7 +222,7 @@ on whether they see the assumptions first.
 |---|---|---|
 | Point estimate without CI | Implies false precision | Always show confidence interval |
 | DiD result without parallel trends check | Audience cannot assess credibility | Show pre-trends first |
-| RDD with raw scatter (no binning) | Noise obscures the discontinuity | Bin into 20–40 groups per side |
+| RDD shown only as arbitrary bins | Appearance can manufacture a jump | Pair transparent bins with robust local-polynomial inference and sensitivity checks |
 | PSM result without overlap check | Estimate may rely on extrapolation | Show overlap before showing effect |
 | "Significant at p < 0.05" as the main message | Conflates statistical and practical significance | State effect size + CI; let audience judge |
 | Effect plot sorted by point estimate | Makes all estimates look real | Sort by theory or natural order; show CIs |

@@ -2,11 +2,13 @@
 
 ## Classification
 
-### Random Classifier
-- **AP** = positive_rate = n_positive / n_total `[Academic: Davis & Goadrich 2006, ICML; Saito & Rehmsmeier 2015, PLOS ONE]`
+### Random Ranking Reference
+- Expected PR precision and AP are approximately the positive rate under random ranking;
+  finite-sample AP depends on candidate set, ties, and implementation. This is a
+  no-skill expectation, not a mathematical floor.
 - **AUC-ROC** = 0.5 `[Definitional]`
-- **Precision** = positive_rate (at any threshold) `[Definitional]`
-- **Recall** = threshold-dependent, but AUC-PR = positive_rate
+- **Expected precision** = positive rate under random selection
+- **Recall** = operating-point dependent
 
 ### Always-Positive Classifier
 - Precision = positive_rate
@@ -15,38 +17,37 @@
 
 ### Majority Class Classifier (predict all negative)
 - Accuracy = 1 - positive_rate  ← misleading, ignore this
-- AP = positive_rate (same as random)
+- AP depends on score/tie handling; report the constant-score implementation explicitly
 - Recall = 0 → useless
 
 ### Prior Model / Heuristic
 - If you have a previous model or rule-based system, that is the true baseline.
-- Random is only the floor, not the bar.
+- Random is only a no-skill reference, not the business bar.
 
 ---
 
 ## Regression
 
 ### Predict Mean Baseline
-- RMSE_baseline = std(y_test)
-- MAE_baseline = mean(|y - mean(y)|) ≈ 0.798 × std(y) for normal distributions
+- Fit `c = mean(y_train)` and evaluate `RMSE(y_test, c)` and `MAE(y_test, c)`.
+- Using `mean(y_test)` is an oracle test-set baseline, not a deployable predictor.
 
-### Normalized RMSE
-- nRMSE = RMSE_model / std(y_test)
-- nRMSE ≥ 1.0: worse than or equal to predicting the mean `[Definitional]`
-- nRMSE < 1.0: better than mean prediction `[Definitional]`
-- No verified thresholds below 1.0 — compare to previous model and task benchmarks
+### Relative RMSE
+- Prefer `RMSE_model / RMSE_train_mean_baseline` on the same evaluation rows.
+- A ratio below 1 beats the deployable constant baseline; a ratio above 1 does not.
 
 ### For Time Series
 - Naive baseline: predict previous value (lag-1)
-- MASE (Mean Absolute Scaled Error) = MAE_model / MAE_naive — use this instead of raw MAE
+- For seasonal period `m`, scale test absolute errors by the mean in-sample training
+  error `mean(|y_t - y_{t-m}|)`.
 
-**Intermittent demand guard**: If naive baseline = 0 for many periods (e.g., sparse SKUs with frequent zero demand), MAE_naive → 0 and MASE is undefined (division by zero). In this case substitute **RMSSE** (Root Mean Squared Scaled Error), which uses squared naive error in the denominator and is defined even when MAE_naive = 0.
+**Intermittent demand guard**: If the MASE denominator is zero, MASE is undefined.
+RMSSE may help for intermittent but non-constant series, but it is also undefined when
+its training scaling denominator is zero:
 ```
-RMSSE = RMSE_model / RMSE_naive
-RMSE_naive = sqrt(mean((y_t - y_{t-1})²))  — always > 0 for non-constant series
+RMSSE = sqrt(mean(test_error²) / mean((y_t - y_{t-m})² on training))
 ```
-> Reference: M5 Competition (Makridakis et al. 2022) uses RMSSE as the primary metric
-> specifically because MASE is undefined for intermittent demand series.
+Report an unscaled error and an explicitly defined baseline when either scale is zero.
 
 ---
 
@@ -55,7 +56,7 @@ RMSE_naive = sqrt(mean((y_t - y_{t-1})²))  — always > 0 for non-constant seri
 Anomaly detection typically has no labeled ground truth — baselines must be constructed differently.
 
 ### Unsupervised (no labels)
-- **Contamination rate baseline**: If you flag top X% of scores as anomalies, what is the expected precision if flags were random? = actual_anomaly_rate (if known from domain knowledge) or undefined (document this gap explicitly).
+- **Contamination rate baseline**: If you flag top X% of scores as anomalies, the expected precision of a random flag = actual_anomaly_rate (if known from domain knowledge) or undefined (document this gap explicitly).
 - **Seasonal naive baseline**: flag periods that deviate > 2 std from the same period in prior weeks/months. Many "ML" anomaly detectors fail to beat this.
 
 ### Semi-supervised / labeled evaluation
@@ -78,14 +79,15 @@ Score distributions are algorithm-specific. The only valid comparison is against
 ### Popularity Baseline
 - Rank by item frequency in training set
 - This beats random significantly on most recommendation tasks
-- If your model doesn't beat popularity, it has learned nothing useful
+- If the model does not beat popularity on the predefined ranking metric, it has not
+  demonstrated improvement on that metric; justify any value through other predeclared objectives.
 
 ---
 
 ## Imbalanced Data — Metric Selection
 
 The specific positive-rate cutoffs below are directional guidance, not verified thresholds.
-The underlying principle has academic support (Saito & Rehmsmeier 2015, Davis & Goadrich 2006).
+The underlying principle (AP over AUC-ROC for rare positives) has academic support — see `foundations/citations.md`.
 
 | Positive Rate | Preferred Metric | Avoid |
 |---|---|---|
@@ -97,11 +99,7 @@ The underlying principle has academic support (Saito & Rehmsmeier 2015, Davis & 
 At < 5% positive rate: **prefer AP / AUC-PR over AUC-ROC** — not because AUC-ROC
 inflates (a constant classifier always gets AUC-ROC = 0.5), but because AUC-ROC does
 not reflect false discovery rate. AP changes with class prevalence and therefore captures
-positive-class performance directly.
+positive-class performance directly. Full explanation: `foundations/metric_interpretation.md`.
 
 Common misconception to avoid: "all-negative classifier gets AUC-ROC = 0.97 on 3%
 positive data." This is wrong — that 0.97 is **accuracy**, not AUC-ROC.
-
-> Sources: Richardson et al. (2024), Patterns (Cell Press) — AUC-ROC is invariant to
-> class imbalance. Saito & Rehmsmeier (2015), PLOS ONE (3,594 citations) — PR/AP is
-> more informative for imbalanced data because it focuses on positive-class performance.

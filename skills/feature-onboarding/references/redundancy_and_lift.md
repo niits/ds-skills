@@ -33,7 +33,7 @@ existing feature individually yet be an exact linear combination of *several*.
 Pairwise `|r|` never sees this. Two robust checks:
 
 ```python
-# VIF: how well is the new feature explained by ALL existing features together?
+# Exploratory raw-source VIF: how well is the new feature explained by existing inputs?
 # CRITICAL: statsmodels' variance_inflation_factor needs an intercept column.
 # Without add_constant it regresses through the origin and reports VIFs that are
 # wildly inflated for any feature whose mean is large vs its variance (e.g. ~130
@@ -65,9 +65,9 @@ r2 = LinearRegression().fit(d[existing_cols], d[new_col]).score(d[existing_cols]
 
 ### Mode dependence
 
-- **Scorecard mode**: redundancy tolerance is **low**. Multicollinearity destabilizes
-  logistic coefficients and breaks reason-code interpretability. Be strict
-  (VIF < 5, drop one of any `|r| ≥ 0.7` pair).
+- **Scorecard mode**: redundancy tolerance is **low**. Compute coefficient-collinearity
+  diagnostics on the actual train-fitted WoE design matrix, with an intercept. Raw
+  source-column VIF/R² is only an exploratory data diagnostic.
 - **GBM mode**: trees tolerate correlated inputs. Redundancy mainly costs
   interpretability and a little training time. Be lenient, but still drop true
   duplicates to keep SHAP attributions clean.
@@ -76,13 +76,13 @@ r2 = LinearRegression().fit(d[existing_cols], d[new_col]).score(d[existing_cols]
 
 | `|r|` (Spearman) | Action |
 |---|---|
-| ≥ 0.7 | Drop new feature (unless materially higher IV than the existing one) |
-| [0.5, 0.7) | Keep only if IV clearly higher |
+| ≥ 0.7 | Investigate with mode-specific ablation and governance needs |
+| [0.5, 0.7) | Compare stable conditional/group lift |
 | [0.3, 0.5) | Keep — incremental info |
 | < 0.3 | Keep — orthogonal |
 
-Always confirm a "keep" survives the **multivariate** check (VIF/R²), not just the
-best pairwise number.
+Treat these as default screening bands. Final retention depends on stable validation
+ablation and model-mode governance, not correlation or IV alone.
 
 ---
 
@@ -114,20 +114,22 @@ delta = gini(y_val, cand.predict_proba(X_val[existing_cols + new_cols])[:, 1]) \
 ```
 
 - Set the keep-threshold *before* looking (e.g. ΔGini ≥ 0.005), and account for
-  run-to-run variance (repeat with seeds / CV folds; require the delta to exceed
-  its own noise band). Prefer **repeated CV on train+validation** to a single split
-  so the delta isn't a one-fold fluke.
+  uncertainty. Prefer repeated rolling/expanding chronological validation folds,
+  refitting every learned transformation and model only on each fold's past-training
+  partition, so the delta is not a one-period fluke.
 
 ### Embedded importance as a cross-check
 
-For GBM mode, **permutation importance** or **SHAP** on validation tells you whether
-the model actually *uses* the feature. A feature with decent IV but zero permutation
-importance is already covered by correlated inputs → drop.
+For GBM mode, **permutation importance** or **SHAP** on validation can show how a fitted
+model uses or attributes a feature, but neither proves incremental lift. Correlated
+inputs make individual attribution unstable; use grouped or conditional permutation
+where appropriate and keep paired baseline-versus-candidate validation ablation as the
+decision evidence.
 
 ```python
 from sklearn.inspection import permutation_importance
 imp = permutation_importance(model, X_val, y_val, scoring="roc_auc", n_repeats=10)
-# new feature near 0 (within noise) -> not contributing
+# Near-zero marginal importance is diagnostic, not an automatic drop rule.
 ```
 
 ### Why low-IV features sometimes survive here

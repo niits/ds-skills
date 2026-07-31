@@ -16,30 +16,46 @@ reference period and a later period.
 ```python
 import numpy as np
 
-def psi(expected: np.ndarray, actual: np.ndarray, bins: int = 10, eps: float = 1e-6):
-    """PSI of `actual` vs an `expected` reference.
-    Continuous features: quantile bins of `expected`. Low-cardinality features:
-    one bin per distinct value -- otherwise the quantile edges collapse to a single
-    bin and a real shift (e.g. a binary 30%->50%) silently returns PSI = 0."""
-    edges = np.unique(np.quantile(expected, np.linspace(0, 1, bins + 1)))
-    if len(edges) < 3:                       # <=2 distinct edges -> discrete feature
-        cats = np.union1d(np.unique(expected), np.unique(actual))
-        e = np.array([(expected == c).mean() for c in cats]) + eps
-        a = np.array([(actual   == c).mean() for c in cats]) + eps
-    else:
-        edges[0], edges[-1] = -np.inf, np.inf
-        e = np.histogram(expected, edges)[0] / len(expected) + eps
-        a = np.histogram(actual,   edges)[0] / len(actual)   + eps
-    e, a = e / e.sum(), a / a.sum()          # renormalize after eps so both sum to 1
+def fit_psi_bins(reference: np.ndarray, bins: int = 10):
+    """Fit continuous PSI edges on finite training/reference values."""
+    finite = np.asarray(reference, dtype=float)
+    finite = finite[np.isfinite(finite)]
+    if finite.size == 0 or bins < 2:
+        raise ValueError("reference needs finite values and bins must be >= 2")
+    edges = np.unique(np.quantile(finite, np.linspace(0, 1, bins + 1)))
+    if edges.size < 3:
+        raise ValueError("use explicit categorical bins for low-cardinality data")
+    edges[0], edges[-1] = -np.inf, np.inf
+    return edges
+
+def psi_continuous(reference, actual, edges, eps: float = 1e-6):
+    """Apply frozen edges and include missingness as an explicit final bucket."""
+    reference = np.asarray(reference, dtype=float)
+    actual = np.asarray(actual, dtype=float)
+    if reference.size == 0 or actual.size == 0 or eps <= 0:
+        raise ValueError("non-empty inputs and positive eps are required")
+    def shares(x):
+        if np.isinf(x).any():
+            raise ValueError("infinite values are data defects, not missingness")
+        missing = np.isnan(x)
+        counts = np.r_[np.histogram(x[~missing], edges)[0], missing.sum()]
+        return (counts + eps) / (counts.sum() + eps * counts.size)
+    e, a = shares(reference), shares(actual)
     return float(np.sum((a - e) * np.log(a / e)))
 ```
+
+For categorical features, fit an explicit training category set and missing bucket,
+then map unseen values to `__OTHER__`; do not infer categorical handling from collapsed
+numeric quantiles. Persist continuous edges and categorical levels and apply them
+unchanged to every authorized comparison period. Report missing share, unseen-category mass, and
+zero share separately where they are operationally meaningful.
 
 > **The real low-cardinality failure is a false zero, not noise.** Naive quantile-bin
 > PSI on a feature with few distinct values (e.g. ~90% zeros after `fill 0`, or any
 > binary/categorical flag) collapses the edges into one bin and returns **PSI ≈ 0 —
-> "stable" — even when the distribution has genuinely shifted.** The discrete branch
-> above prevents this; for heavily zero-dominated continuous features, also monitor the
-> zero-share directly as its own series.
+> "stable" — even when the distribution has genuinely shifted.** Use the explicit
+> categorical procedure above; for heavily zero-dominated continuous features, also
+> monitor zero share directly.
 
 ### Thresholds (conventions, not statistical tests)
 
@@ -59,12 +75,11 @@ characteristics breach 0.25 from seasonality or portfolio growth. A breach means
 - Track stability at three levels, which are **not** the same statistic:
   - **Feature-distribution PSI** — raw distribution of each feature across periods (the
     code above).
-  - **CSI (Characteristic Stability Index)** — the *score-attributed* shift: the same
-    distribution deltas **weighted by the characteristic's WoE / points contribution**,
-    so it measures how much each feature *moves the score*, not just how much it moves.
+  - **Characteristic contribution drift** — use the institution's declared formula;
+    terms such as CSI are not defined uniformly across organizations.
   - **Score PSI** — PSI of the final model score/points itself.
-  Regulators expect characteristic-level (CSI) **and** score-level monitoring; a feature
-  can drift a lot in distribution yet barely move the score (low CSI), or vice versa.
+  Applicable governance may require characteristic- and score-level monitoring. Declare
+  the formula, baseline, threshold, and jurisdiction/product applicability before use.
 - A strong-IV feature whose distribution has genuinely moved is a liability: the model
   was trained on a distribution that no longer exists. But confirm it's drift, not a
   broken join, before acting.
@@ -77,12 +92,19 @@ characteristics breach 0.25 from seasonality or portfolio growth. A breach means
 
 ## IV by period (not just pooled)
 
-Pooled IV averages over time and hides decay. Compute IV **per period** and look at
-the trend.
+Pooled IV averages over time and hides decay. During selection, compute IV per
+**development period** and inspect the trend. OOT period diagnostics may be reported
+only after opening the frozen OOT evaluation and cannot change that configuration.
 
 ```python
-iv_by_period = {p: woe_iv(df[df.period == p], feat, label)[0] for p in periods}
+iv_by_period = {
+    p: iv_from_frozen_bins(df[df.period == p], feat, label, train_bins)
+    for p in periods
+}
 ```
+
+`train_bins` includes edges/categories and missing/unseen rules fitted on train; never
+refit it independently by period.
 
 - Flat or rising IV → durable signal.
 - IV high early, collapsing recently → the feature is **dying**; do not rely on it,
@@ -99,20 +121,22 @@ the same regime and the same selection noise.
 
 ### Protocol
 
-1. **Split by time, not at random.** Train + validation on `[t0, t1]`; hold out an
-   **OOT window** `[t1, t2]` that comes strictly *after* — chronologically, the way
+1. **Split by time, not at random.** Train + validation on `[t0, t1)`; hold out an
+   **OOT window** `[t1, t2)` that comes strictly *after* — chronologically, the way
    production will see data.
 2. Do **all** feature engineering decisions (IV thresholds, binning, redundancy,
    selection) on **train/validation only**. The OOT window is untouched during
    development (Anti-pattern #13).
-3. After the feature set is **provisionally locked**, evaluate **once** on OOT:
+3. After the complete pipeline is **locked**, evaluate **once** on OOT:
    - Report Gini/AUC on validation vs OOT and the **drop**.
    - A modest drop (regime change) is expected. A large drop signals overfitting to
      the development period or a leaky/selection-biased feature.
-4. If a feature's contribution evaporates OOT, drop it regardless of in-sample IV.
+4. If the frozen pipeline fails its predeclared OOT criterion, record NO-GO. Do not
+   alter features or thresholds and reuse that window as final confirmation; obtain a
+   new later holdout after any revision.
 
 ```
-   |──── train + validation (decisions here) ────|── OOT (confirm once) ──|
+   |── train + validation [t0,t1) (decisions) ──|── OOT [t1,t2) ──|
    t0                                            t1                       t2
 ```
 

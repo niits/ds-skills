@@ -8,6 +8,7 @@ What relationship are you showing?
 ├── Change over time?
 │   ├── Few time points (< 6) → Bar chart (vertical)
 │   ├── Many time points      → Line chart
+│   ├── Exactly two points    → Slope chart
 │   └── Cumulative change     → Area chart (filled)
 │
 ├── Comparison between categories?
@@ -113,7 +114,8 @@ Better than grouped bar for showing directionality of change.
 
 **Rules:**
 - Label both endpoints directly; no legend needed
-- The slope of the connecting line IS the message — steepness = magnitude of change
+- Endpoint difference encodes change; steepness varies with aspect ratio and axis scale.
+  Use common scales and directly label absolute or percentage change.
 - Accent the category of interest; gray the others
 
 ---
@@ -126,5 +128,12 @@ Better than grouped bar for showing directionality of change.
 | 3D bar / 3D pie | Depth distorts values | 2D bar |
 | Dual y-axis | Scales are arbitrary; misleads | Two separate charts |
 | Radar / spider | Overloaded; impossible to compare | Bar chart |
-| Bubble chart (3 vars) | Size is hard to decode | Scatter + color |
+| Bubble chart (3 vars), when precise values matter | Size is decoded far less accurately than position/length (Cleveland & McGill 1984) | Scatter + color, or direct value labels on each bubble |
 | Stacked area (many series) | Only bottom series is readable | Line chart per series |
+
+Bubble charts are not banned outright: per Cleveland & McGill (1984), position along a common
+scale and length are judged far more accurately than area/size, so size-encoded charts are the
+wrong choice whenever the audience needs to read off precise values. They're still acceptable for
+coarse/ordinal signal ("roughly bigger vs. smaller") — see the Size attribute in
+`references/pre-attentive-attributes.md`. If you do use one, direct-label the values on the
+bubbles by default; don't rely on the reader decoding size from a legend.

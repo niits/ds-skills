@@ -11,21 +11,24 @@ the same either fabricates signal or hides it.
 
 | Situation | Meaning | Right treatment |
 |---|---|---|
-| Entity holds no deposit account → `deposit_balance` is NaN | **Structural absence** — value genuinely is "none" | Fill 0 **and** add a `has_deposit` flag |
+| Independent ownership data proves no deposit account exists | **Structural absence** — value genuinely is "none" | Fill 0 **and** add a `has_deposit` flag |
 | Sensor/source missing for an entity that *does* have the product | **Unknown** | Leave NaN (GBM) / impute + flag (scorecard) |
 | Lag pct_change with no prior period | **Genuinely unknown** (no baseline) | Leave NaN — do not invent a change |
-| Lag absolute diff with no prior period | No prior = no change observed | Fill 0 |
+| Lag absolute diff with no prior period | **Unknown** — no comparison exists | Leave missing and add `has_prior_period` if useful |
 | Ratio/share with zero denominator | Undefined, not zero | NaN, **not** 0 (see division guard) |
 
 ### Always pair "fill 0" with a missingness flag
 
-If you fill 0 for structural absence, the model cannot tell "0 because absent" from
+Do not infer structural absence from the feature's nullness; first establish it from an independent eligibility or ownership field. If you fill 0 for verified structural absence, the model cannot tell "0 because absent" from
 "0 because genuinely zero". Add an explicit indicator so the model can learn the
 difference instead of you choosing for it:
 
 ```python
-df = df.withColumn("has_deposit", F.col("deposit_balance").isNotNull().cast("int"))
-df = df.withColumn("deposit_balance", F.coalesce("deposit_balance", F.lit(0.0)))
+df = df.withColumn("has_deposit", F.col("owns_deposit_account").cast("int"))
+df = df.withColumn(
+    "deposit_balance",
+    F.when(F.col("has_deposit") == 0, F.lit(0.0)).otherwise(F.col("deposit_balance")),
+)
 ```
 
 This is the single most common fix: the original "fill 0 for absence-based features"
@@ -39,8 +42,9 @@ asserting absence == zero behavior, which can fabricate or mask signal.
 The whole convention changes with **Model Mode** (see SKILL.md):
 
 ### GBM mode
-- Trees split on NaN natively — **leave genuine unknowns as NaN**. Imputing invents
-  information and can bias splits.
+- Leave genuine unknowns missing only when the selected estimator, feature assembler,
+  and serving implementation explicitly support the same missing-value routing.
+  Otherwise fit imputation on training data and add an indicator where justified.
 - Structural-absence → `0 + flag` as above.
 - Ratios with zero denominator → NaN (let the tree route them).
 
@@ -63,7 +67,7 @@ computation time, and verify in Phase 11 that no infinities survived.
 # Safe ratio: undefined when denominator is 0 -> NaN, never inf
 df = df.withColumn(
     "dep_share",
-    F.when(F.col("total_balance") > 0, F.col("deposit_balance") / F.col("total_balance"))
+    F.when(F.col("total_balance") != 0, F.col("deposit_balance") / F.col("total_balance"))
      .otherwise(F.lit(None))
 )
 # Verification (Phase 11 data-quality layer, NOT inside the compute function).

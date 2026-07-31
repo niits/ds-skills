@@ -32,23 +32,28 @@ Apply the temporal audit in `references/leakage_and_tautology.md` rigorously: th
 feature snapshot must reflect only what was known **at the moment the lead would be
 scored** (typically lead-creation or MQL time), not the enriched present state.
 
-> Classic leak: `number_of_sales_touches` as a feature. Sales touch the leads they
-> *already* think are good (or that already engaged) → it encodes the outcome and the
-> sales team's judgment, not the lead's intrinsic propensity. Tautology + selection.
+> Post-score sales touches are leakage. Strictly pre-score touches may be valid for a
+> policy-specific conversion estimand, but they encode historical sales policy and
+> require explicit selection-bias and deployment-policy review.
 
 ---
 
 ## Selection bias on contacted leads
 
-Your label ("converted") is observed only for leads that were **worked**. Leads sales
-never called have no conversion outcome — they look like negatives but are really
-**unknown**. This biases every IV/lift number toward the behavior of the
-already-prioritized population.
+First establish whether conversion is observed for all leads or only worked leads, and
+whether contact merely reveals conversion or causally changes it. Unworked leads are
+unknown/censored only when the data-generating process establishes that; they are not
+universally negatives or unknowns.
 
-- Be explicit about the label's denominator: contacted leads vs all leads.
+- Be explicit about the target estimand, label denominator, historical contact policy,
+  overlap/propensity information, and whether the full outcome horizon had matured at
+  extraction. Prevent the same account/person/opportunity from crossing folds when
+  repeated leads share outcomes or features.
 - Features that correlate with *who sales chose to call* (territory, account size,
   inbound vs outbound) partly measure the existing prioritization, not lead quality.
-  Decide whether you want to model intrinsic propensity (debias) or the current funnel.
+  Decide whether you want policy-specific conversion, response under contact, or an
+  untreated propensity. The latter is not identified from policy-selected observational
+  data without defensible assumptions, overlap, instrumentation, or experimentation.
 
 ---
 
@@ -56,8 +61,8 @@ already-prioritized population.
 
 Conversions happen days-to-weeks after the lead is scored. Define:
 - **Cutoff T** = scoring moment (lead creation / MQL).
-- **Embargo** = none-to-short, but the **label window** must start at T and look
-  *forward* (did this lead convert within H days?). Never let activity from after T
+- **Gap** = optional and justified by the estimand or latency. Declare transaction
+  ordering; absent a stable event-sequence key, use `(T, T+H]` for outcomes. Never let activity from after T
   leak into the features.
 
 ---
@@ -69,4 +74,4 @@ Conversions happen days-to-weeks after the lead is scored. Define:
 | 2 | Prefer intrinsic-behavior features; be wary of funnel-state features that encode sales' own choices |
 | 5 | Measure lift with Precision@k / lift@k at realistic SDR capacity, not just Gini |
 | 6 | Audit CRM/enrichment fields for back-fill; drop sales-touch and engagement-outcome proxies |
-| 9 | Note label = contacted-lead population; flag selection-bias-laden features |
+| 9 | Record the actual label-observation population and flag contact-policy selection where outcomes are observed or affected selectively |

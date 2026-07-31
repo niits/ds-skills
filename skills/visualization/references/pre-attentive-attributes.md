@@ -41,7 +41,11 @@ Darker or more saturated = more important.
 ### Size
 Larger = more important or bigger magnitude.
 
-**Use cases:** Bubble charts, dot plots where a third dimension is encoded in size.
+**Use cases:** Bubble charts, dot plots where a third dimension is encoded in size — for coarse,
+ordinal signal ("roughly bigger vs. smaller"), not for exact values (Cleveland & McGill 1984 rank
+area/size well below position and length in judgment accuracy). See
+`references/chart-selection.md`'s "What to NEVER Use" table for when a bubble chart should be
+replaced with scatter + color or direct value labels instead.
 
 **Rule:** Size is hard to decode precisely. Use it for categorical importance, not for exact values.
 
@@ -97,10 +101,17 @@ Context data:   light gray — present but receding
 Secondary text: mid gray — readable but subordinate
 Primary text:   near-black — all titles and axis labels
 Accent 1:       one bold color — THE focus, use once per chart
-Accent 2:       a second color — only for a direct comparison point
-Negative:       red — financial loss, error states only
-Positive:       green — goal achieved, up vs target only
+Accent 2:       (no preset) — a second color for a direct comparison point; `swd_style.py`
+                ships no ready-made second accent, so pick and CVD-verify a pair before use
+Negative:       coral/vermillion — financial loss, error states only
+Positive:       blue — goal achieved, up vs target only
 ```
+
+Never pair coral/vermillion and blue (or any accent pair) as the *sole* differentiator for
+positive/negative on one chart — always back it with position (above/below a reference line),
+a +/- sign, or a direct label, so the meaning survives for readers who can't rely on hue alone.
+Do not substitute red + green for this pair: ~8% of men cannot reliably distinguish them (see
+"Color (Hue)" above and `references/color-palettes.md`).
 
 ---
 

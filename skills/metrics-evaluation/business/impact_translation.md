@@ -10,13 +10,9 @@ Given:
 - Precision = P, Recall = R at operating threshold
 
 ```
-True positives caught per day  = N × p × R
-False positives triggered/day  = N × (1 - p) × (P / (1 - P)) × ... 
-
-Simpler:
-  TP/day = N × p × R
-  FP/day = TP/day × (1 - P) / P   [from definition of precision]
-  FN/day = N × p × (1 - R)
+TP/day = N × p × R
+FP/day = TP/day × (1 - P) / P   [from definition of precision]
+FN/day = N × p × (1 - R)
 ```
 
 ### Example: Fraud Detection
@@ -26,12 +22,15 @@ Simpler:
 - Average fraud value = $200
 
 ```
-TP = 500 × 0.30 = 150 frauds caught/day → $30,000 saved
+TP = 500 × 0.30 = 150 frauds detected/day → $30,000 face value
 FP = 150 × (0.60/0.40) = 225 false alerts/day
 FN = 500 × 0.70 = 350 frauds missed/day → $70,000 lost
 
-Analyst cost: 225 FP × $5/review = $1,125/day
-Net value: $30,000 - $1,125 = $28,875/day
+Prevented loss = Σ(detected_amount × preventable_or_recoverable_fraction)
+Review cost = (TP + FP) × $5/review
+Net incremental value also subtracts intervention, reimbursement, customer-friction,
+support, and churn costs and compares against the no-model/current-policy counterfactual.
+Report a range when preventability and friction inputs are uncertain.
 ```
 
 ---
@@ -44,7 +43,7 @@ Always ask: which is worse?
 |---|---|---|---|
 | Fraud blocking | Customer friction, churn risk | Loss of fraud value | Balance — don't block good customers |
 | Fraud flagging (soft alert) | Analyst time | Loss of fraud value | Can tolerate higher FP |
-| Medical diagnosis | Unnecessary treatment | Missed disease | Usually: low FP more critical |
+| Medical diagnosis | Unnecessary follow-up/treatment | Missed disease | Disease/workflow-specific; screening often prioritizes sensitivity before confirmation |
 | Churn prediction | Marketing cost | Lost revenue | Depends on LTV vs campaign cost |
 | Credit risk | Rejected good loan (lost revenue) | Bad loan (loss) | Depends on margin |
 | Spam filter | Missed legitimate email (high cost) | Spam received | Very low FP required |
@@ -55,7 +54,7 @@ Always ask: which is worse?
 
 When business only acts on top-k predictions (e.g., "flag top 200 accounts for review"):
 
-- AP summarizes the full curve — irrelevant
+- AP summarizes the full curve and remains useful for model comparison, but it is secondary to the operating decision
 - **Precision@k** is what matters: of the top 200 flagged, how many are actually positive?
 - Report Precision@k where k = actual review capacity
 - Also report: how does Precision@k compare to baseline (random = positive_rate)?
@@ -78,7 +77,8 @@ Sometimes the model metric is fine but business impact is unclear. Dig deeper:
 
 Say it clearly when:
 - Precision at any reasonable threshold is below the cost-effective threshold
-- TP/day × value_per_TP < FP/day × cost_per_FP
+- Full incremental expected net value is negative versus the current policy after TP
+  preventability/value, all action/review costs, FP friction, and FN opportunity cost
 - The model doesn't beat the current heuristic/rule-based system
 - The required recall to be useful implies precision below acceptable level
 

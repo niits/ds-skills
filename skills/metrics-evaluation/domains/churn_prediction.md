@@ -37,7 +37,8 @@ Before evaluating any metric, confirm:
 - **Gap**: time between last feature and outcome start (e.g., 7 days — avoids using signals that co-occur with churn)
 - **Outcome window**: period in which churn is defined (e.g., next 30 days)
 
-If gap = 0: features and labels bleed into each other → leakage.
+Gap zero is valid when features are point-in-time correct and the outcome starts after
+the scoring event. Leakage occurs only when timestamps overlap or unavailable-at-decision information enters features.
 If outcome window too short: only fast churners are captured.
 
 ### Voluntary vs Involuntary Churn
@@ -62,30 +63,32 @@ Including them as negatives in training inflates model performance and distorts 
 | Revenue churn (MRR churn) | Lost MRR / Total MRR | High-value churners matter more than count |
 | Net Revenue Retention (NRR) | (Starting MRR + Expansion MRR − Contraction MRR − Churned MRR) / Starting MRR | Includes expansion; NRR > 100% = growth despite churn |
 | LTV | Average revenue × avg customer lifetime | Denominator for campaign ROI calculation |
-| Intervention conversion rate | % of contacted at-risk customers who stayed | Critical for break-even calculation |
+| Conditional save probability | Incremental probability of retention among true at-risk customers | Requires identified treatment-control evidence and assumptions |
 | Campaign cost per contact | Total campaign cost / customers contacted | Break-even precision numerator |
 
 ### Break-Even Precision for Churn Campaigns
 ```
-P_breakeven = campaign_cost_per_contact / (LTV_at_risk × intervention_conversion_rate)
+P_breakeven = campaign_cost_per_contact / (value_at_risk × conditional_save_probability)
 
 e.g., LTV = $1,200, cost = $15/contact, conversion = 20%
 P_breakeven = $15 / ($1,200 × 0.20) = 6.25%
 
-At Precision@budget > 6.25%: campaign is ROI-positive
-At Precision@budget < 6.25%: contacting these customers costs more than it saves
+Use this only when the incremental save probability is supported by treatment-control
+evidence. Otherwise report scenario bounds; predictive precision cannot prove campaign ROI.
 ```
 
-### MRR-Weighted Precision
+### MRR-at-Risk Concentration
 Count-based precision treats a $10/month and $500/month customer equally.
 Use MRR-weighted precision when LTV varies significantly:
 
 ```
-MRR_weighted_precision@k =
+MRR_at_risk_concentration@k =
     Σ(MRR_i for customers in top-k predictions who are true churners)
   / Σ(MRR_i for all customers in top-k predictions, churner or not)
 ```
-Denominator = total MRR at stake if you intervene with all top-k. Numerator = MRR you actually save.
+The numerator is MRR attached to observed churners, not MRR saved. Incremental saved
+MRR requires treatment-control evidence and subtraction of offer, contact, contraction,
+and cannibalization costs.
 
 ---
 
@@ -93,7 +96,8 @@ Denominator = total MRR at stake if you intervene with all top-k. Numerator = MR
 
 ### Primary: Precision@budget
 - budget = number of contacts the retention team can handle per period
-- "Of the top N customers we contact, what fraction are actually at-risk AND responsive?"
+- "Of the top N customers, what fraction subsequently churn under a common, stated policy?"
+- Responsiveness is not identified by a churn prediction label.
 - Compare to: random outreach = baseline churn rate
 
 ### Secondary: Revenue Recall
@@ -102,7 +106,8 @@ Denominator = total MRR at stake if you intervene with all top-k. Numerator = MR
 
 ### Uplift Metrics (if uplift model is used)
 - **AUUC (Area Under Uplift Curve)**: measures model's ability to identify customers who respond to treatment
-- **Qini coefficient**: uplift equivalent of Gini — ranges 0 (random) to 1 (perfect)
+- **Qini coefficient**: state the implementation, normalization, random-policy baseline,
+  and uncertainty; raw and normalized variants differ and may be negative
 - **Expected ROI at budget**: Σ(uplift_i × LTV_i − cost_i) for top k customers
 
 ### What NOT to Report
@@ -122,9 +127,10 @@ Denominator = total MRR at stake if you intervene with all top-k. Numerator = MR
 - Result: wastes budget on customers who can't be saved and customers who don't need saving
 
 ### Uplift Model
-- Label: treatment effect — did intervention cause this customer to stay?
-- Requires: **randomized experiment** with treatment (contacted) and control (not contacted) groups
-- Learns: who has the highest marginal response to intervention
+- Inputs: treatment assignment, observed outcome, and covariates; individual treatment
+  effect is not an observed label
+- Requires randomization or defensible identification assumptions plus overlap
+- Estimates conditional average treatment effect/uplift and its uncertainty
 - Result: targets the "persuadables" — customers on the fence who respond to outreach
 
 **When to use which:**
@@ -132,13 +138,10 @@ Denominator = total MRR at stake if you intervene with all top-k. Numerator = MR
 - Historical A/B data or willingness to run holdout group → build uplift model
 - Prediction AP is fine but campaign ROI is negative → switch to uplift model
 
-### Uplift Segmentation (Simplified, No A/B Data)
-Even without A/B data, segment the prediction model output:
-```
-High score, low engagement with past campaigns → "sure churners" (don't waste budget)
-High score, high engagement with past campaigns → "persuadables" (prioritize)
-Low score → "safe" (don't contact)
-```
+### Without Randomized Treatment Data
+Do not assign causal response types such as "persuadable" or "sure churner" from risk
+and historical engagement. Historical campaign engagement is treatment-selected and
+confounded. Use it descriptively, then validate targeting through a randomized holdout.
 
 ---
 
@@ -159,12 +162,13 @@ Low score → "safe" (don't contact)
 Never random split — activity features leak across time.
 
 ### Step 3: Compute Metrics in This Order
-1. **Baseline churn rate** in test set (= AP_random)
+1. **Baseline churn rate** in an untreated or common-policy test population
 2. **AP and lift** over baseline
 3. **Precision@budget** where budget = retention team capacity per month
 4. **MRR-weighted precision@budget** if LTV varies
 5. **Revenue recall**: of total at-risk MRR, what fraction is in the top-k predictions?
-6. **Break-even check**: is Precision@budget > P_breakeven?
+6. **Economic scenario or causal check**: combine prediction with an identified
+   conditional save model, or directly evaluate incremental profit/uplift from randomized data
 
 ### Step 4: Cohort Analysis
 Always decompose performance by:
@@ -183,11 +187,11 @@ A churn model is only useful if it predicts early enough to intervene.
 
 | Symptom | Diagnosis | Action |
 |---|---|---|
-| AP good, campaign ROI negative | Contacting non-persuadables or sure churners | Switch to uplift model or segment prediction output |
+| AP good, campaign ROI negative | Treatment heterogeneity, costs, offer design, execution, or confounding | Treat as hypotheses; use randomized or credibly identified uplift evaluation |
 | High recall, low precision at budget | Model too liberal — contacting too many low-risk customers | Tighten threshold; optimize Precision@budget specifically |
-| Precision@budget barely beats baseline | Weak features or wrong label definition | Check: does churn correlate with any single feature? If no → label problem |
+| Precision@budget barely beats baseline | Weak/conditional signal, support, policy, or label issue | Compare multivariate baselines and run a separate label audit |
 | Model performance degrades over time | PSI increase on feature distributions | Monitor PSI trend; trigger retraining when shift is detected |
-| New customers score as high-risk immediately | Behavioral features not yet accumulated; immortal cohort contamination | Exclude customers who haven't completed the full outcome window from scoring |
+| New customers score as high-risk immediately | Behavioral features not yet accumulated; cold start | Exclude immature labels from training/evaluation; route live new customers to a separately validated cold-start policy |
 | Score predicts involuntary churn well, voluntary poorly | Mixed labels | Separate label types; train separate models |
 | Model catches 80% of churners but misses high-LTV segment | Model optimizes count, not revenue | Switch to MRR-weighted training loss |
 
@@ -198,9 +202,9 @@ A churn model is only useful if it predicts early enough to intervene.
 ### What to Monitor
 1. **PSI on input features**: detect population shift before model degrades
 2. **Score distribution**: mean and variance of scores over time
-3. **Precision@budget**: track weekly — leading indicator of model decay
-4. **Actual churn rate vs predicted churn rate**: calibration check
-5. **Campaign conversion rate**: did customers predicted as at-risk actually respond to intervention?
+3. **Precision@budget under a stable/common policy**: track after labels mature
+4. **Reliability by probability bin plus calibration intercept/slope**: aggregate rate alone is only calibration-in-the-large
+5. **Incremental retention by targeting stratum** from a valid treatment-control design
 
 ### Retraining Triggers
 No verified universal thresholds — define triggers based on business tolerance, then monitor:

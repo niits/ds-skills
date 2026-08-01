@@ -2,7 +2,7 @@
 name: databricks
 description: Use when querying or shaping large data on Databricks with Spark SQL/PySpark and Delta Lake, or packaging a trained model with MLflow for reproducible notebook-independent serving. Covers profiling, optimization, feature engineering, wide joins, model logging, registry aliases, and batch inference.
 allowed-tools: Read Write Edit Bash
-license: MIT license
+license: MIT; third-party notices apply
 metadata:
     skill-author: ds-skills
     domain: general

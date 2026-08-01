@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-marketplace.json",
+  "name": "niits-ds-skills",
+  "description": "Data science skills maintained by niits.",
+  "owner": {
+    "name": "niits",
+    "url": "https://github.com/niits"
+  },
+  "plugins": [
+    {
+      "name": "ds-skills",
+      "source": {
+        "source": "github",
+        "repo": "niits/ds-skills",
+        "ref": "master"
+      },
+      "description": "Data science skills for Databricks, model evaluation, visualization, banking hypotheses, and feature onboarding",
+      "author": {
+        "name": "niits",
+        "url": "https://github.com/niits"
+      },
+      "homepage": "https://github.com/niits/ds-skills",
+      "repository": "https://github.com/niits/ds-skills",
+      "category": "development",
+      "tags": [
+        "data-science",
+        "databricks",
+        "machine-learning"
+      ]
+    }
+  ]
+}

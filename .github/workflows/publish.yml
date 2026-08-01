@@ -1,0 +1,62 @@
+name: Publish Claude skills
+
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+    branches:
+      - master
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: publish-claude-skills-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    name: Validate plugin and marketplace
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install Claude Code
+        run: npm install --global @anthropic-ai/claude-code@latest
+
+      - name: Validate plugin
+        run: claude plugin validate .claude-plugin/plugin.json
+
+      - name: Validate marketplace
+        run: claude plugin validate .claude-plugin/marketplace.json --strict
+
+  verify-publication:
+    name: Verify master marketplace installation
+    if: github.event_name == 'push'
+    needs: validate
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install Claude Code
+        run: npm install --global @anthropic-ai/claude-code@latest
+
+      - name: Register published marketplace
+        run: claude plugin marketplace add https://github.com/niits/ds-skills.git#master
+
+      - name: Install published skills
+        run: claude plugin install ds-skills@niits-ds-skills --scope user

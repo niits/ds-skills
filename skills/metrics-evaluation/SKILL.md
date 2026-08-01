@@ -2,7 +2,7 @@
 name: metrics-evaluation
 description: Use when model evaluation numbers need an honest, baseline-anchored usability verdict. Computes relevant baselines, maps metrics to business KPIs, detects multi-metric failure patterns, and prescribes remediation for classification, regression, and ranking.
 allowed-tools: Read Write Edit Bash
-license: MIT license
+license: MIT; third-party notices apply
 metadata:
     skill-author: ds-skills
 ---

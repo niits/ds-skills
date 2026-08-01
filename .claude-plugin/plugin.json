@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-plugin-manifest.json",
+  "name": "ds-skills",
+  "displayName": "Data Science Skills",
+  "description": "Data science skills for Databricks, model evaluation, visualization, banking hypotheses, and feature onboarding.",
+  "author": {
+    "name": "niits",
+    "url": "https://github.com/niits"
+  },
+  "homepage": "https://github.com/niits/ds-skills",
+  "repository": "https://github.com/niits/ds-skills",
+  "keywords": [
+    "data-science",
+    "databricks",
+    "machine-learning",
+    "visualization"
+  ]
+}

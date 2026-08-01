@@ -1,112 +1,170 @@
-# DS Skills for Databricks Agent
+# DS Skills
 
-A collection of data science skills adapted for use with a Databricks-based agent.
-All skills run on Databricks clusters and render output inline in notebooks.
+A five-skill Claude Code plugin for data science work: Spark/Delta and MLflow workflows,
+model evaluation, visualization, banking investigations, and feature onboarding for lead
+and credit scoring.
 
-## Skills
+The repository contains agent instructions, reference documents, and two optional
+matplotlib helper modules. It is not a Python package and does not install notebook or
+runtime dependencies. Databricks is the primary execution environment for engineering
+examples and output conventions, while much of the evaluation and visualization guidance
+is platform-independent.
 
-Skills are grouped into **general DS skills**, **banking-domain skills**, and an
-**ML-pipeline skill**. Most skills ship an `agent_council/review_council.py` — a debate
-council of agents that critiques the skill's own content (all in English).
-(`feature-onboarding` does not yet include one.)
+## Install
 
-### General DS skills
+Use a current Claude Code release with plugin marketplace support.
 
-#### `databricks/`
+```text
+/plugin marketplace add niits/ds-skills
+/plugin install ds-skills@niits-ds-skills
+/reload-plugins
+```
 
-Effective Databricks usage for Data Scientists, in two parts. **Part A — Querying:**
-read and shape large data with Spark SQL/PySpark and Delta Lake (read-only profiling,
-predicate pushdown, join hints, semi-join pre-filtering, wide modeling-dataset join
-chains, window aggregations, EDA patterns, pandas interop). **Part B — MLflow Model
-Packaging:** turn a trained model into a reproducible, notebook-independent artifact
-(`log_model` with `input_example`/signature, `pyfunc` for custom models, Model Registry
-stage/alias promotion, `spark_udf` batch inference, a reproducibility checklist).
+Plugin skills use the `ds-skills` namespace:
 
-#### `plotnine-visualization/`
+```text
+/ds-skills:databricks
+/ds-skills:metrics-evaluation
+/ds-skills:visualization
+/ds-skills:banking-hypothesis-generation
+/ds-skills:feature-onboarding
+```
 
-Grammar-of-graphics visualizations in Python using [plotnine](https://plotnine.org) — a faithful ggplot2 port for Python.
-Use for EDA, business dashboards, and any chart built by layering geoms + aesthetics + scales + themes.
-Covers the full grammar: geoms (40+), stats, scales, facets, coordinate systems, position adjustments, and themes.
-Includes ready-to-use patterns (scatter, histogram, violin, heatmap, time series, faceted small multiples)
-and theme recipes (NYT, FT, dark/presentation, publication/academic).
-Works with both **pandas** and **polars** DataFrames.
-Display in Databricks notebooks via `display(p.draw())`.
+Refresh the marketplace and plugin with:
 
-#### `visualization/`
+```text
+/plugin marketplace update niits-ds-skills
+/plugin update ds-skills@niits-ds-skills
+```
 
-Make charts that communicate. Applies the Storytelling-with-Data (SWD) framework to
-**every** chart, then picks the library by output goal via a decision tree:
-Plotly for interactive EDA, matplotlib/seaborn for publication, matplotlib + NYT theme
-for presentations, and plotnine when the grammar of graphics fits. Carries the SWD
-principles, scientific/publication styling references, a plotnine grammar-of-graphics
-reference, and the `swd_style.py` / `style_presets.py` helpers plus `.mplstyle` presets.
+## Included Skills
 
-#### `metrics-evaluation/`
+| Skill | Scope | Key constraints |
+| --- | --- | --- |
+| `databricks` | Spark/Delta profiling, efficient joins and windows, distributed EDA, feature engineering, wide modeling datasets, MLflow packaging, Unity Catalog aliases, and batch inference. | No unbounded collection, unpartitioned large windows, hidden notebook state, or confusion between a Delta snapshot and a per-row as-of join. Targets Databricks Runtime 13+, Spark 3.4+, and MLflow 2.x. |
+| `metrics-evaluation` | Baseline-anchored and uncertainty-aware verdicts for classification, regression, and ranking, with domain guides and business-impact translation. | Returns `INSUFFICIENT EVIDENCE` instead of a shipping verdict when decision-critical evaluation context is missing. |
+| `visualization` | Accessible and statistically honest EDA, publication, stakeholder, model-evaluation, and causal-inference charts using Plotly, plotnine, matplotlib, or seaborn. | Blocks unexplained denominators or aggregation, unsupported causal language, hidden uncertainty, and meaning that depends only on color or hover. |
+| `banking-hypothesis-generation` | Competing mechanisms, falsifiable predictions, and investigation designs for credit risk, fraud, customer analytics, AML, and model validation. | Starts from a measured observation, requires predeclared falsification conditions, and checks data quality and population shift before model redesign. |
+| `feature-onboarding` | Hypothesis-first onboarding of feature groups into binary lead- and credit-scoring pipelines, from source audit to production monitoring. | Requires scorecard/GBM mode selection, bitemporal point-in-time safety, incremental lift, and one untouched OOT confirmation. Recommendation-system material is an unsupported roadmap. |
 
-Metric selection, interpretation, baselines, and diagnosis of metric movements, with
-business KPI mapping and domain guides (churn, lead scoring, recommendation).
+Each skill lives at `skills/<skill-name>/SKILL.md`. Technical depth is split into focused
+supporting documents under directories such as `references/`, `domains/`, `business/`,
+`foundations/`, `diagnosis/`, and `reporting/`. The visualization skill also ships
+`assets/swd_style.py` and `assets/color_palettes.py` for optional matplotlib use.
 
-### Banking-domain skills
+Files under `agent_council/` are internal editorial review utilities or historical review
+records. They are not required to invoke or use a skill.
 
-#### `banking-hypothesis-generation/`
+## Suggested Workflow
 
-Structured hypothesis formulation for banking DS: credit risk, fraud, customer
-analytics, AML, and regulatory model validation. Follows the scientific method adapted
-for banking constraints (internal data, regulatory oversight, champion-challenger
-testing) — observations → competing hypotheses → experimental design → testable
-predictions.
+The skills can be used independently, or as one model-development lifecycle:
 
-#### `banking-visualization/`
+1. Use `banking-hypothesis-generation` to explain a measured portfolio, policy, data, or
+   model phenomenon and design distinguishing tests.
+2. Use `feature-onboarding` when a hypothesis proposes a candidate feature group that
+   must be screened and integrated safely.
+3. Apply `databricks` for distributed source processing, feature computation, model
+   packaging, and reproducible batch inference.
+4. Use `metrics-evaluation` for valid baselines, uncertainty, operating economics, and a
+   shipping verdict.
+5. Use `visualization` to communicate the evidence, assumptions, uncertainty, and
+   decision to the intended audience.
 
-Domain layer for banking charts. Audience tiers (executive / risk committee / regulator
-/ practitioner), trustworthiness obligations in regulated environments (axis-at-zero,
-data-as-of dates, no color-only encoding, dual-axis caveats), and a task map of standard
-charts (KS curve, PSI bar, migration matrix, vintage curve, fraud anomaly enclosure,
-cohort retention). Defers the SWD framework and library choice to `visualization/`.
+Across the repository, stricter domain rules take precedence over generic examples. In
+particular, feature production must follow `feature-onboarding` point-in-time and exact
+period semantics even when a simplified Spark example would be technically executable.
 
-### ML-pipeline skills
+## Runtime Assumptions
 
-#### `feature-onboarding/`
+- The plugin itself has no install-time Python dependencies.
+- Examples may require PySpark, MLflow, pandas, NumPy, scikit-learn, matplotlib, seaborn,
+  Plotly, plotnine, statsmodels, or other libraries called out in the relevant reference.
+- Databricks examples assume suitable cluster, table, Unity Catalog, Feature Engineering,
+  or registry permissions for the operation being demonstrated.
+- The optional `agent_council/review_council.py` scripts require the `anthropic` package,
+  API credentials, and network access. They are maintainer tools, not skill prerequisites.
+- The repository does not pin these dependencies or run examples against a live
+  Databricks workspace in CI.
 
-End-to-end lifecycle for onboarding a new feature group into a supervised ML pipeline,
-from data-source understanding to production code. Primary focus on **lead scoring** and
-**credit scoring** (binary, ranking-oriented), extensible to recommendation systems.
+## Development
 
-Twelve phases with a hard Go/No-Go gate. Opinionated on a **Model Mode** choice
-(scorecard/WoE vs GBM) that keeps binning, null handling, monotonicity, and fairness
-consistent. Emphasizes **hypothesis-before-compute** (no brute-forced features) and
-guards the failures that kill models in production:
-- **Leakage** — temporal point-in-time (future/restated/late-arriving data, embargo) *and* definitional tautology (label-proxy correlation test)
-- **Predictive power** — IV/WoE with the practical traps handled (zero-event smoothing, min-event-per-bin, sparse/tie features, rare-event instability); binary-only scope with regression/multiclass alternatives
-- **Redundancy + lift** — Spearman & VIF/multivariate redundancy, then incremental-lift (wrapper/embedded) as the actual decision, not univariate IV alone
-- **Stability** — PSI and out-of-time (OOT) validation
-- **Null handling** — absence vs unknown, missingness flags, mode-dependent imputation
+Load the repository directly:
 
-Reference files (`references/`) carry the technical depth with PySpark/pandas snippets;
-domain files (`domains/`) cover credit scoring (scorecard, reason codes, fairness/proxy,
-reject inference), lead scoring (feature latency, selection bias), and the recsys
-extension path.
+```bash
+claude --plugin-dir .
+```
 
----
+Validate both distribution manifests:
 
-## Sources
+```bash
+claude plugin validate .claude-plugin/plugin.json
+claude plugin validate .claude-plugin/marketplace.json --strict
+```
 
-Skills are adapted from the following open-source repositories:
+The plugin intentionally omits a fixed `version`, allowing the Git commit SHA to identify
+updates. The plugin validator consequently emits a non-fatal version warning. The
+marketplace must pass strict validation.
 
-| Skill | Source | License |
-|-------|--------|---------|
-| `banking-hypothesis-generation` | [K-Dense-AI/claude-scientific-skills — hypothesis-generation](https://github.com/K-Dense-AI/claude-scientific-skills/tree/main/scientific-skills/hypothesis-generation) | MIT |
-| `visualization` (publication core) | [K-Dense-AI/claude-scientific-skills — scientific-visualization](https://github.com/K-Dense-AI/claude-scientific-skills/tree/main/scientific-skills/scientific-visualization) | MIT |
-| `visualization` (ML chart patterns) | [Orchestra-Research/AI-Research-SKILLs — academic-plotting](https://github.com/Orchestra-Research/AI-Research-SKILLs/tree/main/20-ml-paper-writing/academic-plotting) | MIT |
-| `visualization` / `banking-visualization` (SWD framework + domain charts) | Adapted from *Storytelling with Data* by Cole Nussbaumer Knaflic (Wiley, 2015) | — |
-| `plotnine-visualization` | Based on [plotnine](https://plotnine.org) docs and [rstudio/cheatsheets](https://github.com/rstudio/cheatsheets) | MIT / CC BY SA |
+## Publishing
 
-### Adaptations
+GitHub is the distribution host; publishing means making the marketplace manifest and
+plugin content available on `master`, not uploading an npm, PyPI, or release artifact.
 
-Skills have been modified for Databricks:
-- LaTeX output removed; replaced with Markdown/HTML rendered in notebook cells
-- File export removed; figures displayed inline via `display(fig)`
-- For skills that ship Python assets (`visualization`, `shared`), script imports
-  reference DBFS paths (`/dbfs/FileStore/...`); the analysis-only skills
-  (`feature-onboarding`, `metrics-evaluation`, `banking-hypothesis-generation`) are
-  pure-PySpark/pandas snippets with no DBFS path dependencies
+`.github/workflows/publish.yml` performs the following checks:
+
+- On pull requests targeting `master`: validate the plugin manifest and strictly validate
+  the marketplace manifest.
+- On pushes to `master`: run the same validation, then register the public marketplace and
+  install `ds-skills@niits-ds-skills` as a distribution smoke test.
+- On manual dispatch: run manifest validation only.
+
+The workflow verifies discovery and installation. It does not invoke every skill, execute
+the Python examples, or test against Databricks.
+
+## Provenance
+
+This repository contains independently written synthesis, adaptations of open-source
+material, and instructions informed by public references. The table distinguishes those
+relationships; citing a source does not imply endorsement by its author.
+
+| Repository content | Relationship to source | Upstream terms |
+| --- | --- | --- |
+| `banking-hypothesis-generation` | Modified and expanded from K-Dense AI's `hypothesis-generation` skill | MIT |
+| Parts of `visualization` | Modified and expanded from K-Dense AI's `scientific-visualization` skill | MIT |
+| ML chart patterns in `visualization` | Modified and expanded from Orchestra Research's `academic-plotting` skill | MIT |
+| Parts of plotnine guidance | Independently organized using the plotnine API and documentation as technical references | plotnine: MIT |
+| Plotnine quick-reference concepts | Informed by Posit cheatsheets; adapted portions are identified as modified | CC-BY-4.0 |
+| Storytelling and chart-design guidance | Original implementation informed by concepts discussed in *Storytelling with Data* by Cole Nussbaumer Knaflic (Wiley, 2015) | All rights reserved; no license to reproduce the book is claimed |
+
+Upstream links, applicable copyright and permission notices, and modification notes are
+in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md). Ordinary academic and industry
+citations that support technical claims remain in the relevant skill references, such as
+`skills/metrics-evaluation/foundations/citations.md`.
+
+## Copyright Guidance
+
+Rewriting a skill after learning from a source is not automatically infringement. In
+general, copyright protects the source's particular text, code, tables, diagrams, and
+other creative expression; it does not protect facts, ideas, methods, or APIs by
+themselves. The practical obligations depend on what was reused:
+
+- For MIT sources, modification and redistribution are permitted, but the upstream
+  copyright and permission notice must remain with copies or substantial portions.
+- For CC-BY-4.0 material, credit the creator, link the source and license, and identify
+  changes. CC-BY-4.0 does not contain a ShareAlike requirement.
+- For an all-rights-reserved book, use the underlying ideas and write your own structure,
+  wording, examples, tables, and figures. Do not closely translate or paraphrase
+  protectable passages, and do not reproduce book figures without permission or a clear
+  legal exception.
+- Attribution does not cure copying that the source license does not permit. Conversely,
+  independently written material does not become a derivative work merely because it
+  cites the same facts or methods.
+
+These notes document this project's licensing approach and are not legal advice. For
+commercial distribution or uncertain close paraphrases, obtain a qualified legal review.
+
+## License
+
+Original contributions in this repository are licensed under the MIT License; see
+[LICENSE](LICENSE). Third-party portions remain subject to their applicable upstream
+terms listed in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).

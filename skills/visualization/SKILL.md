@@ -2,7 +2,7 @@
 name: visualization
 description: Make charts that communicate for data science on Databricks. Use when building exploratory, publication, model-evaluation, causal-inference, or stakeholder figures.
 allowed-tools: Read Write Edit Bash
-license: MIT license
+license: MIT; third-party notices apply
 metadata:
     skill-author: ds-skills
     domain: general

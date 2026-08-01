@@ -2,7 +2,7 @@
 name: feature-onboarding
 description: Use when onboarding a new feature group into a supervised lead- or credit-scoring pipeline and gating it against leakage, tautology, redundancy, and out-of-time drift before production. Covers hypothesis-first design, predictive screening, incremental lift, stability, implementation, and release.
 allowed-tools: Read Write Edit Bash
-license: MIT license
+license: MIT; third-party notices apply
 metadata:
     skill-author: ds-skills
     domain: lead scoring / credit scoring

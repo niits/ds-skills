@@ -32,8 +32,11 @@ jobs:
       - name: Install Claude Code
         run: npm install --global @anthropic-ai/claude-code@latest
 
-      - name: Validate plugin
-        run: claude plugin validate .claude-plugin/plugin.json
+      - name: Validate ds-skills plugin
+        run: claude plugin validate .claude-plugin/plugin.json --strict
+
+      - name: Validate claude-code-council plugin
+        run: claude plugin validate plugins/claude-code-council/.claude-plugin/plugin.json --strict
 
       - name: Validate marketplace
         run: claude plugin validate .claude-plugin/marketplace.json --strict
@@ -60,3 +63,6 @@ jobs:
 
       - name: Install published skills
         run: claude plugin install ds-skills@niits-ds-skills --scope user
+
+      - name: Install published council plugin
+        run: claude plugin install claude-code-council@niits-ds-skills --scope user

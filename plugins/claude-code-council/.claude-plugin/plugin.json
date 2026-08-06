@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-plugin-manifest.json",
+  "name": "claude-code-council",
+  "displayName": "Multi-Agent Adversarial Council",
+  "version": "0.1.0",
+  "description": "Multi-Agent Adversarial Council: a chair plans a roster of independent researchers with conflicting mandates, runs them in parallel, classifies their disagreements instead of averaging them, and returns one traceable report.",
+  "author": {
+    "name": "niits",
+    "url": "https://github.com/niits"
+  },
+  "homepage": "https://github.com/niits/ds-skills/tree/master/plugins/claude-code-council",
+  "repository": "https://github.com/niits/ds-skills",
+  "license": "MIT",
+  "keywords": [
+    "council",
+    "multi-agent",
+    "adversarial",
+    "research",
+    "review"
+  ]
+}

@@ -9,11 +9,7 @@
   "plugins": [
     {
       "name": "ds-skills",
-      "source": {
-        "source": "github",
-        "repo": "niits/ds-skills",
-        "ref": "master"
-      },
+      "source": "./",
       "description": "Data science skills for Databricks, model evaluation, visualization, banking hypotheses, and feature onboarding",
       "author": {
         "name": "niits",
@@ -26,6 +22,25 @@
         "data-science",
         "databricks",
         "machine-learning"
+      ]
+    },
+    {
+      "name": "claude-code-council",
+      "source": "./plugins/claude-code-council",
+      "description": "Multi-Agent Adversarial Council: a chair plans a roster of independent researchers with conflicting mandates, runs them in parallel, classifies their disagreements instead of averaging them, and returns one traceable report.",
+      "author": {
+        "name": "niits",
+        "url": "https://github.com/niits"
+      },
+      "homepage": "https://github.com/niits/ds-skills/tree/master/plugins/claude-code-council",
+      "repository": "https://github.com/niits/ds-skills",
+      "category": "development",
+      "tags": [
+        "council",
+        "multi-agent",
+        "adversarial",
+        "research",
+        "review"
       ]
     }
   ]

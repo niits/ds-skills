@@ -42,14 +42,16 @@ Refresh the marketplace and plugin with:
 | Skill | Scope | Key constraints |
 | --- | --- | --- |
 | `databricks` | Spark/Delta profiling, efficient joins and windows, distributed EDA, feature engineering, wide modeling datasets, MLflow packaging, Unity Catalog aliases, and batch inference. | No unbounded collection, unpartitioned large windows, hidden notebook state, or confusion between a Delta snapshot and a per-row as-of join. Targets Databricks Runtime 13+, Spark 3.4+, and MLflow 2.x. |
-| `metrics-evaluation` | Baseline-anchored and uncertainty-aware verdicts for classification, regression, and ranking, with domain guides and business-impact translation. | Returns `INSUFFICIENT EVIDENCE` instead of a shipping verdict when decision-critical evaluation context is missing. |
+| `metrics-evaluation` | Baseline-anchored, protocol-aware evaluation for binary, multi-class, and multi-label classification, regression, point and probabilistic forecasting, anomaly detection, ranking and recommendation, churn, lead scoring, and representation learning. | Returns `INSUFFICIENT EVIDENCE` instead of a decision conclusion when decision-critical evaluation context is missing. Descriptive and partial-evidence answers stay in scope. No domain overlay for credit or fraud; those route to the generic classification and imbalanced-data guidance. |
 | `visualization` | Accessible and statistically honest EDA, publication, stakeholder, model-evaluation, and causal-inference charts using Plotly, plotnine, matplotlib, or seaborn. | Blocks unexplained denominators or aggregation, unsupported causal language, hidden uncertainty, and meaning that depends only on color or hover. |
 | `banking-hypothesis-generation` | Competing mechanisms, falsifiable predictions, and investigation designs for credit risk, fraud, customer analytics, AML, and model validation. | Starts from a measured observation, requires predeclared falsification conditions, and checks data quality and population shift before model redesign. |
 | `feature-onboarding` | Hypothesis-first onboarding of feature groups into binary lead- and credit-scoring pipelines, from source audit to production monitoring. | Requires scorecard/GBM mode selection, bitemporal point-in-time safety, incremental lift, and one untouched OOT confirmation. Recommendation-system material is an unsupported roadmap. |
 
 Each skill lives at `skills/<skill-name>/SKILL.md`. Technical depth is split into focused
-supporting documents under directories such as `references/`, `domains/`, `business/`,
-`foundations/`, `diagnosis/`, and `reporting/`. The visualization skill also ships
+supporting documents under directories such as `references/`, `domains/`, and
+topic-oriented subdirectories; the exact layout varies by skill. The
+`metrics-evaluation` skill uses `topics/`, grouped `domains/`, and `references/` as its
+normative hierarchy. The visualization skill also ships
 `assets/swd_style.py` and `assets/color_palettes.py` for optional matplotlib use.
 
 Files under `agent_council/` are internal editorial review utilities or historical review
@@ -66,7 +68,9 @@ The skills can be used independently, or as one model-development lifecycle:
 3. Apply `databricks` for distributed source processing, feature computation, model
    packaging, and reproducible batch inference.
 4. Use `metrics-evaluation` for valid baselines, uncertainty, operating economics, and a
-   shipping verdict.
+   shipping verdict. It supplies the general evaluation protocol; regulatory scorecard
+   metrics such as KS and Gini and fair-lending checks are not covered and remain the
+   caller's responsibility.
 5. Use `visualization` to communicate the evidence, assumptions, uncertainty, and
    decision to the intended audience.
 
@@ -139,7 +143,7 @@ relationships; citing a source does not imply endorsement by its author.
 Upstream links, applicable copyright and permission notices, and modification notes are
 in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md). Ordinary academic and industry
 citations that support technical claims remain in the relevant skill references, such as
-`skills/metrics-evaluation/foundations/citations.md`.
+`skills/metrics-evaluation/references/citations.md`.
 
 ## Copyright Guidance
 

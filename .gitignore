@@ -16,6 +16,7 @@ venv/
 
 # Local Claude Code configuration
 .claude/settings.local.json
+.claude/logs/
 
 # Editors and operating systems
 .idea/

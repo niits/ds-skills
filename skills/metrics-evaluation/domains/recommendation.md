@@ -60,7 +60,7 @@ NDCG@k = DCG@k / IDCG@k
 DCG@k = Σ (rel_i / log2(i+1)) for i = 1..k
 ```
 
-*(citation: `foundations/citations.md`)*
+*(citation: `references/citations.md`)*
 
 **Limitation**: binary relevance treats all relevant items equally. NDCG supports graded
 gains, but their value mapping must be defined and validated. Use Revenue@k or expected
@@ -194,16 +194,16 @@ Checklist:
 
 ## Common Failure Modes
 
-| Symptom | Diagnosis | Action |
+| Symptom | Compatible Hypotheses | Discriminating Check |
 |---|---|---|
-| NDCG improves, valid online CI excludes the minimum practical CTR effect | Offline-online gap hypothesis | Check experiment validity, exposure bias, candidate protocol, and metric alignment; otherwise mark an underpowered result inconclusive |
-| High NDCG, low coverage | Popularity bias — recommending same items everywhere | Add coverage regularization; use long-tail re-ranking |
-| New user performance much worse | Cold start not addressed | Train hybrid with content features; add onboarding flow |
-| AP/NDCG perfect (> 0.9) | Evaluation leakage — future items in training | Verify temporal split strictly |
-| User complaints about repetitive recommendations | Low ILD — diversity not optimized | Add diversity re-ranking post-model |
-| Engagement drops for niche users | Model over-optimizes for majority preferences | Cluster users; train segment-specific models |
-| Business items (promoted) being buried | Model ignores business constraints | Add constraint layer on top of ranking |
-| NDCG stable but revenue per session flat | Model maximizes clicks, not purchases | Switch label to purchases; use revenue-weighted NDCG |
+| Offline gain, online interval below or spanning useful CTR margin | Metric mismatch, exposure bias, implementation, insufficient precision | Apply zero/margin rules; validate experiment and served candidates |
+| High NDCG, low coverage | Concentrated demand, eligibility, popularity, candidate limits | Freeze eligible catalog; separate candidate recall and ranking |
+| New-user performance worse | Sparse history, different candidates or intent, arbitrary strata | Use declared history strata and appropriate content/popularity baselines |
+| AP/NDCG unusually high | Leakage, duplicates, candidate simplification, genuine signal | Audit time/entity overlap and replay the full candidate protocol |
+| Repetition complaints | Diversity, exposure frequency, segment, or feedback sampling | Link complaints to logged exposure and predeclared diversity measures |
+| Niche-user engagement drops | Candidate coverage, segment mix, experiment noise, majority optimization | Report segment support and paired online effects before model changes |
+| Required items are buried | Constraint implementation, eligibility, score conflict | Replay the serving policy and inspect constraint compliance |
+| NDCG stable, revenue flat | Metric mismatch, attribution, price/margin mix, experiment precision | Evaluate causal revenue effects and policy-aware offline value |
 
 ---
 
@@ -223,7 +223,7 @@ it cannot identify exposure propensity by itself.
 3. Use approved randomized position swaps or exploration to collect identified evidence.
    Do not claim debiasing by adding position as a feature and forcing it to one at scoring.
 
-*(citation: `foundations/citations.md`)*
+*(citation: `references/citations.md`)*
 
 ---
 
@@ -242,6 +242,7 @@ When an item has < 10 interactions:
 3. Monitor: how many interactions before collaborative filtering works? Set threshold.
 
 ### Never Treat Cold Start as Edge Case
-In many products, new users = 30–50% of daily active users.
+Measure the new-user share of daily active users for this product rather than assuming a
+range; it varies widely with product maturity, category, and acquisition spend.
 A model that works well for returning users but fails on new users has a severe business problem.
 Always report cold-start metrics separately. If they are not reported, they were probably not evaluated.

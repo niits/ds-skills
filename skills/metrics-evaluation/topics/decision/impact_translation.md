@@ -15,22 +15,21 @@ FP/day = TP/day × (1 - P) / P   [from definition of precision]
 FN/day = N × p × (1 - R)
 ```
 
-### Example: Fraud Detection
-- N = 100,000 transactions/day
-- p = 0.5% fraud rate → 500 frauds/day
-- Model: Precision = 0.40, Recall = 0.30
-- Average fraud value = $200
+### Example: Manual Quality Review
+- N = 10,000 cases/day
+- p = 4% true defect rate, or 400 defects/day
+- Model: Precision = 0.50, Recall = 0.60
 
 ```
-TP = 500 × 0.30 = 150 frauds detected/day → $30,000 face value
-FP = 150 × (0.60/0.40) = 225 false alerts/day
-FN = 500 × 0.70 = 350 frauds missed/day → $70,000 lost
+TP = 400 × 0.60 = 240 defects found/day
+FP = 240 × (0.50/0.50) = 240 unnecessary reviews/day
+FN = 400 × 0.40 = 160 defects missed/day
 
-Prevented loss = Σ(detected_amount × preventable_or_recoverable_fraction)
-Review cost = (TP + FP) × $5/review
-Net incremental value also subtracts intervention, reimbursement, customer-friction,
-support, and churn costs and compares against the no-model/current-policy counterfactual.
-Report a range when preventability and friction inputs are uncertain.
+Review cost = (TP + FP) × cost_per_review
+Incremental value = avoidable_cost_of_detected_defects - review_cost
+                    - intervention_cost - false-action_cost
+Compare with the current review policy. Report sensitivity bounds when avoidability,
+action effectiveness, or unit costs are uncertain.
 ```
 
 ---
@@ -41,11 +40,9 @@ Always ask: which is worse?
 
 | Use Case | Cost of FP | Cost of FN | Implication |
 |---|---|---|---|
-| Fraud blocking | Customer friction, churn risk | Loss of fraud value | Balance — don't block good customers |
-| Fraud flagging (soft alert) | Analyst time | Loss of fraud value | Can tolerate higher FP |
 | Medical diagnosis | Unnecessary follow-up/treatment | Missed disease | Disease/workflow-specific; screening often prioritizes sensitivity before confirmation |
 | Churn prediction | Marketing cost | Lost revenue | Depends on LTV vs campaign cost |
-| Credit risk | Rejected good loan (lost revenue) | Bad loan (loss) | Depends on margin |
+| Quality inspection | Unnecessary review/rework | Defect reaches downstream process | Depends on review and defect costs |
 | Spam filter | Missed legitimate email (high cost) | Spam received | Very low FP required |
 
 ---
@@ -66,9 +63,9 @@ When business only acts on top-k predictions (e.g., "flag top 200 accounts for r
 Sometimes the model metric is fine but business impact is unclear. Dig deeper:
 
 1. **Who acts on the model output?** (analyst, automated system, customer)
-2. **What action do they take?** (block, flag, email, price change)
+2. **What action do they take?** (review, route, notify, price change)
 3. **What is the counterfactual?** (what happens without the model?)
-4. **Is the action reversible?** (blocking a transaction vs sending an email)
+4. **Is the action reversible?** (discarding an item vs sending a notification)
 5. **What is the feedback loop?** (does the action change future data distribution?)
 
 ---

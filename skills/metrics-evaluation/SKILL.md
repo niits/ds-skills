@@ -1,6 +1,6 @@
 ---
 name: metrics-evaluation
-description: Use when model evaluation numbers need an honest, baseline-anchored usability verdict. Computes relevant baselines, maps metrics to business KPIs, detects multi-metric failure patterns, and prescribes remediation for classification, regression, and ranking.
+description: Use when planning or interpreting model evaluation, comparing models, diagnosing metric failures, or deciding whether evidence supports a controlled test. Covers binary, multi-class, and multi-label classification, regression, point and probabilistic forecasting, anomaly detection, ranking and recommendation, churn prediction, lead scoring, and representation learning.
 allowed-tools: Read Write Edit Bash
 license: MIT; third-party notices apply
 metadata:
@@ -11,37 +11,48 @@ metadata:
 
 ## Principle
 
-Never evaluate a metric in isolation. Every result needs a relevant baseline, business
-context, valid evaluation design, uncertainty, and a direct verdict.
+Never evaluate a metric in isolation. Every result needs a relevant baseline, valid
+evaluation design, uncertainty, and a conclusion scoped to the available evidence.
 
 ## Workflow
 
-1. **Establish context and validity.** Identify task, population, split, label maturity,
-   support, positive/relevant rate, metric implementation, operating threshold or `k`,
-   baseline, and business decision. Apply `foundations/evaluation_protocol.md`.
-2. **Load one domain guide.** Use the matching `domains/<domain>.md`; use the generic
-   workflow only when no guide applies.
-3. **Compute baselines.** Compare against no-skill, constant, heuristic, previous-model,
-   popularity, or time-series baselines as appropriate. Use `foundations/baselines.md`.
-4. **Interpret each metric.** Define implementation, averaging/interpolation, threshold
-   or `k`, and comparison basis. Use `foundations/metric_interpretation.md`.
-5. **Diagnose weak or suspicious results.** Check evaluation validity, leakage, shift,
-   label quality, signal, model capacity, operating point/calibration, and metric choice
-   in the order defined by `diagnosis/checklist.md`.
-6. **Translate to business impact.** Trace the target to a KPI, derive the operating
-   requirement, and quantify TP/FP/FN or ranking impact with `business/kpi_mapping.md`
-   and `business/impact_translation.md`.
-7. **Synthesize across metrics.** Match train/validation/test, aggregate/segment,
-   discrimination/calibration, and offline/online evidence to `diagnosis/patterns.md`.
-   State the matched pattern, likely cause, and single most important next action.
-8. **Issue and report one verdict.** Follow `reporting/evaluation_report.md`.
+1. **Apply the universal protocol.** Establish the estimand, population, split, label
+   maturity, support, metric implementation, baseline, operating point, and independent
+   unit with `topics/core/evaluation_protocol.md`.
+2. **Load one domain overlay when applicable.** Use the exact route below; do not load
+   unrelated domains.
+3. **Load topic guidance conditionally.** Use baselines and metric interpretation for
+   calculation or interpretation; diagnosis only for weak, suspicious, or conflicting
+   results; decision topics only for capacity, KPI, or value questions; reporting only
+   when a formal conclusion or report is requested.
+4. **Synthesize without asserting causes.** State the signal, compatible hypotheses,
+   discriminating checks, supported conclusion, and primary next action.
+
+## Routing
+
+| Task or domain | Load |
+|---|---|
+| Every evaluation | `topics/core/evaluation_protocol.md` |
+| Binary or multi-class classification, regression, forecasting, anomaly detection, or ranking | Relevant sections of `topics/core/baselines.md` and `topics/core/metric_interpretation.md` |
+| Multi-label classification | `topics/core/baselines.md` (Multi-Label) and `topics/core/metric_interpretation.md` (Multi-Label) |
+| Probabilistic or interval forecasting | `topics/core/baselines.md` (Probabilistic Forecasting) and `topics/core/metric_interpretation.md` (Probabilistic Forecasting) |
+| Representation learning, embeddings, retrieval, or transfer | `domains/representation_learning.md` |
+| Lead scoring | `domains/customer_analytics/lead_scoring.md` |
+| Churn prediction | `domains/customer_analytics/churn_prediction.md` |
+| Recommendation | `domains/recommendation.md` |
 
 ## Evidence Gate
 
-Return `INSUFFICIENT EVIDENCE` and do not issue a shipping verdict when a
-decision-critical item is unknown: metric definition, evaluation population, split
-validity, label maturity, support, threshold/`k`, baseline, or required economics.
+Return `INSUFFICIENT EVIDENCE` and do not issue the requested decision conclusion when a
+decision-critical item is unknown: estimand, metric or evaluator definition, evaluation
+population, split validity, label maturity, support, operating point, baseline,
+independent unit, or economics required for an economic claim.
 List the evidence needed to resume.
+
+This gate governs the requested decision conclusion only. Descriptive, interpretive, and
+partial-evidence answers remain in scope: state what the available evidence does support,
+name the missing items, and continue. Do not refuse a question you can answer with a
+correctly scoped conclusion.
 
 ## Hard Rules
 
@@ -49,21 +60,24 @@ List the evidence needed to resume.
 - Report evaluation `n`, positive/relevant count, and uncertainty for headline and
   decision-critical segments.
 - Report precision, recall, and F1 only with their threshold; ranking metrics with `k`.
+  For multi-class and multi-label, also report the averaging scheme.
 - Compare models with paired uncertainty at the independent deployment unit.
+- Do not compare results produced with different candidate, gallery, normalization, or
+  probe protocols without a prominent protocol-difference warning.
+- Separate test-sample uncertainty from variation across model-training seeds.
 - Do not use vague assessments such as "decent" or "promising"; use numbers.
 - Diagnose poor or suspicious metrics instead of merely describing them.
-- Do not claim `Good` or `Strong` when uncertainty includes the baseline or required
-  business threshold.
+- Use a paired interval for model-minus-baseline; overlap between two marginal intervals
+  is not a model-comparison test.
 
-## References
+## Topic Index
 
-- `foundations/evaluation_protocol.md` - context, validity, support, and uncertainty.
-- `foundations/baselines.md` - baseline calculations by task.
-- `foundations/metric_interpretation.md` - definitions and interpretation limits.
-- `diagnosis/checklist.md` - ordered root-cause checks.
-- `diagnosis/patterns.md` - multi-metric diagnostic patterns and actions.
-- `business/kpi_mapping.md` - domain KPIs to ML metrics.
-- `business/impact_translation.md` - model outcomes to economic impact.
-- `reporting/evaluation_report.md` - verdict taxonomy and report template.
-- `domains/` - lead scoring, churn, recommendation, fraud, and credit guidance.
-- `foundations/citations.md` - provenance for thresholds and claims; load on request.
+- `topics/core/` - universal protocol, baselines, and metric semantics.
+- `topics/diagnosis/checklist.md` - ordered validity and troubleshooting checks.
+- `topics/diagnosis/general_patterns.md` - cross-domain hypotheses and discriminating checks.
+- Domain-specific diagnostics live in the relevant file under `domains/`.
+- `topics/decision/kpi_mapping.md` - decision-to-metric mapping and the causal boundary.
+- `topics/decision/impact_translation.md` - capacity, counterfactual, and value translation.
+- `topics/reporting/evaluation_report.md` - conclusion rules and conditional report profiles.
+- `domains/` - specialized evaluation overlays grouped by application domain.
+- `references/citations.md` - optional provenance; load only on request.

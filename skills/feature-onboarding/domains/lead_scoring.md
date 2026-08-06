@@ -3,7 +3,8 @@
 Lead scoring ranks prospects by likelihood to convert. The output is a
 **prioritization list for sales**, not a yes/no decision — so it is fundamentally a
 **ranking** problem. This is usually **GBM mode**. (For metric choice, see the
-`metrics-evaluation` skill's `domains/lead_scoring.md`; this file is about *features*.)
+`metrics-evaluation` skill's `domains/customer_analytics/lead_scoring.md`; this file is
+about *features*.)
 
 ---
 

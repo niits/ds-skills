@@ -106,15 +106,16 @@ and cannibalization costs.
 
 ### Uplift Metrics (if uplift model is used)
 - **AUUC (Area Under Uplift Curve)**: measures model's ability to identify customers who respond to treatment
-- **Qini coefficient**: state the implementation, normalization, random-policy baseline,
+- **Qini coefficient** *(citation: `references/citations.md`)*: state the implementation, normalization, random-policy baseline,
   and uncertainty; raw and normalized variants differ and may be negative
 - **Expected ROI at budget**: Σ(uplift_i × LTV_i − cost_i) for top k customers
 
-### What NOT to Report
-- **Overall AP**: useful internally but meaningless to business stakeholders
-- **AUC-ROC**: positive rate is often 5–20%, making AUC misleading
+### Metrics That Are Insufficient as Sole Decision Evidence
+- **Overall AP**: useful for model comparison but does not evaluate the contact budget by itself
+- **AUC-ROC**: measures global rank discrimination but does not expose precision,
+  false-positive burden, calibration, or intervention value at the operating policy
 - **F1 at default threshold**: threshold must be calibrated to contact budget, not 0.5
-- **Accuracy**: always high due to imbalance, always wrong to report
+- **Accuracy**: insufficient without prevalence, class-specific errors, costs, and a relevant baseline
 
 ---
 
@@ -152,14 +153,16 @@ confounded. Use it descriptively, then validate targeting through a randomized h
 - Separate voluntary from involuntary churn before modeling
 - Verify no immortal cohort contamination
 
-### Step 2: Time-Based Split — Mandatory
+### Step 2: Split for the Deployment Estimand
 - Train: cohort entering before month T, with full outcome window observed
 - Val: cohort entering month T to T+N, where N allows the full outcome window to be observed
 - Test: cohort entering after that, again with full outcome window observed
 
 **Important**: if the outcome window is 90 days, customers entering in the last 90 days of your data cannot yet be labeled. Do not include them as negatives — exclude them from training and evaluation entirely. Adjust your cutoff dates to respect this lag.
 
-Never random split — activity features leak across time.
+Use chronological evaluation for future-cohort deployment. A random split is appropriate
+only for an exchangeable deployment estimand with point-in-time-correct features and no
+prohibited customer overlap.
 
 ### Step 3: Compute Metrics in This Order
 1. **Baseline churn rate** in an untreated or common-policy test population
@@ -185,15 +188,15 @@ A churn model is only useful if it predicts early enough to intervene.
 
 ## Common Failure Modes
 
-| Symptom | Diagnosis | Action |
+| Symptom | Compatible Hypotheses | Discriminating Check |
 |---|---|---|
 | AP good, campaign ROI negative | Treatment heterogeneity, costs, offer design, execution, or confounding | Treat as hypotheses; use randomized or credibly identified uplift evaluation |
-| High recall, low precision at budget | Model too liberal — contacting too many low-risk customers | Tighten threshold; optimize Precision@budget specifically |
+| High recall, low precision at budget | Capacity/cost mismatch, weak separation, threshold policy | Evaluate the frozen policy across validation-selected thresholds |
 | Precision@budget barely beats baseline | Weak/conditional signal, support, policy, or label issue | Compare multivariate baselines and run a separate label audit |
-| Model performance degrades over time | PSI increase on feature distributions | Monitor PSI trend; trigger retraining when shift is detected |
-| New customers score as high-risk immediately | Behavioral features not yet accumulated; cold start | Exclude immature labels from training/evaluation; route live new customers to a separately validated cold-start policy |
-| Score predicts involuntary churn well, voluntary poorly | Mixed labels | Separate label types; train separate models |
-| Model catches 80% of churners but misses high-LTV segment | Model optimizes count, not revenue | Switch to MRR-weighted training loss |
+| Model performance degrades over time | Population, labels, policy, pipeline, calibration, concept shift | Link drift signals to matured outcomes before retraining |
+| New customers score as high-risk immediately | Feature latency, missingness, cold-start population | Reconstruct score-time features and evaluate tenure strata |
+| Involuntary and voluntary outcomes differ | Mixed estimands or different mechanisms | Evaluate separate labels; separate models only if evidence supports it |
+| Count recall high, value-weighted recall low | Objective weighting, different behavior, concentration, noisy value | Report both estimands and concentration before changing training |
 
 ---
 

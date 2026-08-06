@@ -37,7 +37,7 @@ that doesn't move any business metric in production.
 | AOV (Average Order Value) | Revenue / Orders | High CTR + low AOV = wrong items |
 | Session depth | Pages/items viewed per session | Engagement proxy |
 | Return visit rate | Sessions with return visit / Total sessions | Retention signal |
-| Catalog coverage | Unique items recommended / Total catalog | Low = popularity bias |
+| Catalog coverage | Unique items recommended / Total catalog | Low values indicate concentration; diagnose the cause |
 | Incremental revenue | Randomized treatment-control revenue contrast | Effect estimate requiring estimand, CI, and experiment-validity checks |
 
 ### Which KPI to Optimize For
@@ -53,12 +53,11 @@ that doesn't move any business metric in production.
 ### NDCG@k (Normalized Discounted Cumulative Gain)
 - Measures quality of ranking in top-k positions
 - Higher-ranked relevant items contribute more
-- **k must match actual visible positions** in the UI: @5 for mobile, @10 for desktop, @20 for scroll-heavy
-
-```
-NDCG@k = DCG@k / IDCG@k
-DCG@k = Σ (rel_i / log2(i+1)) for i = 1..k
-```
+- For an interface evaluated at visible capacity, predeclare `k` to match that capacity.
+  A full-list metric needs no artificial cutoff.
+- Use the NDCG contract in `topics/core/evaluator_semantics.md`; freeze gain, discount,
+  IDCG, candidate set, query weighting, no-relevant-query handling, ties, and `k` when
+  truncated.
 
 *(citation: `references/citations.md`)*
 
@@ -87,9 +86,11 @@ Coverage = |unique items recommended to any user| / |total catalog|
 ```
 No verified absolute thresholds. Compare coverage to:
 - The current/previous model (is it higher or lower?)
-- A popularity-only baseline (does the model recommend more of the long tail?)
+- A declared popularity comparator when it is valid at prediction time
 
-Low coverage relative to baseline signals popularity bias. The right threshold depends on catalog size and business discovery goals.
+Low coverage relative to baseline signals concentration, not its cause. Investigate
+popularity, eligibility, candidate generation, and policy constraints. The right threshold
+depends on catalog size and business discovery goals.
 
 ### Diversity (Intra-List Diversity, ILD)
 ```
@@ -118,7 +119,9 @@ Users abandon recommendation feeds that feel repetitive.
 
 ### Detecting the Gap Before A/B Test
 - **Popularity overlap**: what fraction of top-k recommendations are in the top-10% most popular items?
-  Compare to the popularity baseline — if similar, model learned nothing beyond popularity.
+  Compare with an explicitly defined popularity ranker. Similar overlap alone does not
+  establish equivalence; compare item-level rankings and predeclared metrics on identical
+  candidate sets.
 - **Novelty score**: what fraction of recommendations has the user not seen before?
   If near 0%: model isn't surfacing new items.
 - **ILD check**: compute intra-list diversity on recommendations. Compare to random baseline.
@@ -134,6 +137,10 @@ catalog snapshot time, seen-item handling, candidate-generation recall, and full
 versus sampled-negative evaluation. If negatives are sampled, state distribution and
 count. Compare rankers on identical candidate sets; metrics from different candidate
 protocols are not comparable.
+
+Declare whether each metric evaluates a ranker conditional on supplied candidates or the
+end-to-end candidate-and-ranking system. For conditional evaluation, report candidate
+recall against the full eligible relevance universe separately.
 
 **Temporal split (required for production-realistic evaluation)**:
 - Fit on past training interactions; perform model/candidate selection on later,

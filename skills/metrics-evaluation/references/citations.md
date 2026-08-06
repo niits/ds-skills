@@ -1,7 +1,8 @@
 # Citation Index (Reference Only)
 
-> Optional provenance index for selected claims in `topics/core/metric_interpretation.md`
-> and `topics/core/baselines.md`. It is listed in `SKILL.md` but is not part of normal use.
+> Optional provenance index for selected claims in `topics/core/metric_interpretation.md`,
+> `topics/core/baselines.md`, and `topics/core/evaluator_semantics.md`. It is listed in
+> `SKILL.md` but is not part of normal use.
 
 ## AP / AUC-PR
 - Davis & Goadrich (2006), "The Relationship Between Precision-Recall and ROC Curves", ICML. Supports the population/no-skill PR reference; exact finite-sample AP also depends on ranking size, ties, and implementation.
@@ -24,10 +25,10 @@
 - Gneiting, Balabdaoui & Raftery (2007), "Probabilistic forecasts, calibration and sharpness", Journal of the Royal Statistical Society Series B, 69(2), 243–268. Source of the "maximize sharpness subject to calibration" framing behind reporting PICP together with interval width.
 
 ## Time-Series Anomaly Detection
-- Kim et al. (2022), "Towards a Rigorous Evaluation of Time-Series Anomaly Detection", AAAI. Shows point-adjusted F1 is inflated to the point that a randomly generated detector outperforms published state-of-the-art scores; source of the point-adjustment warning in `topics/core/baselines.md`.
+- Kim et al. (2022), "Towards a Rigorous Evaluation of Time-Series Anomaly Detection", AAAI. Shows point-adjusted F1 is inflated to the point that a randomly generated detector outperforms published state-of-the-art scores; source of the point-adjustment warning in `topics/core/evaluator_semantics.md`.
 
 ## NDCG (Ranking)
-- Järvelin & Kekäläinen (2002), "Cumulated Gain-Based Evaluation of IR Techniques", ACM TOIS, 20(4), 422–446. Foundational DCG/NDCG definition. Note: the original paper defines DCG recursively with no discount applied below rank `b` and a `G[i] / log_b(i)` discount at or above it. The `rel_i / log2(i + 1)` form used in `domains/recommendation.md` is the later, now-standard convention adopted by TREC and common libraries, not the formula in this paper. State which convention an implementation uses before comparing NDCG figures across systems.
+- Järvelin & Kekäläinen (2002), "Cumulated Gain-Based Evaluation of IR Techniques", ACM TOIS, 20(4), 422–446. Foundational DCG/NDCG definition. Implementations vary in gain, discount, IDCG, and zero-IDCG behavior; use the contract in `topics/core/evaluator_semantics.md` before comparing systems.
 
 ## Calibration
 - Niculescu-Mizil & Caruana (2005), "Predicting Good Probabilities with Supervised Learning", ICML.

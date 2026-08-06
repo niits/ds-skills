@@ -27,6 +27,7 @@ accepted changes and retained responsibility for validation.
 | 6 | Post-refactor adversarial review | Vision and representation passed; statistical and architecture reviewers found four remaining blockers |
 | 7 | Final verification after remediation | No blockers; unanimous acceptance |
 | 8 | Adversarial correctness and effectiveness audit | Correctness confirmed strong; one binary-only baseline formula bug, three stale root-README paths, credit/fraud coverage regression, four citation-hygiene defects, five uncovered task families |
+| 9 | Comparator, metric, and evaluator separation | Accepted one output-oriented baseline file, one conditional evaluator-semantics file, and concern-specific routing |
 
 ## Key Decisions
 
@@ -39,6 +40,10 @@ accepted changes and retained responsibility for validation.
 - Diagnostic patterns state signals, compatible hypotheses, and discriminating checks rather than asserting causes.
 - Domain-specific diagnostics remain in domain guides; the diagnosis topic contains only cross-domain patterns.
 - Council records remain excluded from skill routing.
+- Comparator construction, metric meaning, and implementation-dependent evaluator behavior
+  have separate normative owners.
+- Baselines remain in one file organized by emitted output; classification-versus-ranking
+  file splits, universal popularity, and universal cutoff requirements were rejected.
 
 ## Deferred or Rejected Expansion
 
@@ -67,3 +72,16 @@ assumed no external path consumer existed, but the root `README.md` is one and s
 carries stale `foundations/` and `business/` references. See
 `rounds/round8_correctness_and_effectiveness_audit.md`. No files outside `agent_council/`
 were modified.
+
+Round 9 responded to feedback that hard classifier baselines, ranking baselines, and
+implementation-specific metric behavior were conflated. Four independent English-speaking
+reviewers and a chair accepted a three-owner architecture. The remediation added
+`topics/core/evaluator_semantics.md`, reorganized `baselines.md` by emitted output, tightened
+core and domain routing, and corrected the all-negative, finite-sample AP, isotonic-tie,
+cutoff, popularity, and point-adjustment claims. Cross-model review was offered and then
+skipped at the user's direction after the local CLI check was stopped.
+
+Post-edit verification passed: all normative Markdown paths resolve across 15 files;
+`SKILL.md` frontmatter structure parses; `git diff --check` reports no whitespace errors;
+superseded-claim searches return zero normative hits; council files remain absent from
+normal routing; and the normative corpus is 1,997 lines, below the 2,000-line limit.

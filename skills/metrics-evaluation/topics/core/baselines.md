@@ -1,241 +1,159 @@
-# Baseline Formulas
+# Baseline and Comparator Policies
 
-## Binary Classification
+## Comparator Selection
 
-The formulas in this section assume a single positive class and a single negative class.
-`positive_rate` is the prevalence of the positive class. Do not apply them to multi-class
-or multi-label problems; use the Multi-Class and Multi-Label sections below.
+Select a comparator by the artifact it emits and the information available at prediction
+time. A task with binary labels may need a hard-decision comparator, a score-ranking
+comparator, or both. Do not assign ranking metrics to hard labels unless an explicit score
+representation is defined; do not assign hard-decision metrics to scores without a
+threshold, capacity rule, or other decision policy.
 
-### Random Ranking Reference
-- Expected PR precision and AP are approximately the positive rate under random ranking;
-  finite-sample AP depends on candidate set, ties, and implementation. This is a
-  no-skill expectation, not a mathematical floor.
-- **AUC-ROC** = 0.5 `[Definitional]`
-- **Expected precision** = positive rate under random selection
-- **Recall** = operating-point dependent
+The current policy, prior model, or deployable heuristic is usually the primary operational
+comparator. Random and constant policies are no-skill references, not business bars.
 
-### Always-Positive Classifier
-- Precision = positive_rate
-- Recall = 1.0
-- F1 = 2 × positive_rate / (1 + positive_rate)
+## Hard Class or Label-Set Outputs
 
-### Majority Class Classifier (predict all negative)
-- Accuracy = 1 - positive_rate; this is informative only under stated symmetric costs
-  and representative prevalence, and is insufficient without class-specific errors
-- AP depends on score/tie handling; report the constant-score implementation explicitly
-- Recall = 0 → useless
+### Binary Classification
 
-### Prior Model / Heuristic
-- If you have a previous model or rule-based system, it is usually the primary operational baseline.
-- Random is only a no-skill reference, not the business bar.
+Let `p` be positive prevalence in the declared evaluation population.
 
----
+**Always positive**
+- Precision = `p`
+- Recall = `1` when positives exist; otherwise use the frozen undefined-case convention.
+- F1 = `2p / (1 + p)`
 
-## Multi-Class Classification
+**Always negative**
+- Accuracy = `1 - p`; this is informative only under stated symmetric costs and
+  representative prevalence.
+- Recall = `0` when positives exist; otherwise use the frozen undefined-case convention.
+- This is the binary majority-class comparator only when the negative class has at least
+  as much support as the positive class.
 
-Let `p_c` be the share of class `c` in the evaluation set, over `C` classes.
+These hard decisions do not intrinsically define AP or AUC. If they are deliberately
+represented as tied score levels, declare that representation and use the evaluator
+contract in `topics/core/evaluator_semantics.md`.
 
-### Majority Class Classifier (predict the single most frequent class)
-- Accuracy = `max_c p_c`. This is the class share itself, **not** `1 - p_c`. The binary
-  shortcut `1 - positive_rate` is only correct when `C = 2` and the majority class is the
-  negative one; applied to a multi-class problem it returns the wrong number.
-- Macro recall = `1 / C`; macro precision and macro F1 are undefined for the `C - 1`
-  classes that receive no predictions unless a zero-division convention is declared.
-  State the convention (`sklearn` defaults to 0 with a warning).
+### Multi-Class Classification
 
-### Uniform Random Classifier
-- Accuracy = `1 / C`.
-- Expected per-class recall = `1 / C`; expected per-class precision = `p_c`.
+Let `p_c` be evaluation prevalence and `q_c` be a prior estimated only from information
+available at prediction time, over `C` classes.
 
-### Prior-Matching Random Classifier (sample class `c` with probability `p_c`)
-- Accuracy = `Σ_c p_c²`. This is the correct no-skill accuracy when the classifier
-  reproduces the class prior, and it exceeds `1 / C` whenever classes are imbalanced.
+**Majority class:** predict `m = argmax_c q_c`. Evaluation accuracy is `p_m`; it equals
+`max_c p_c` only when the prediction-time and evaluation majorities match. Using the
+evaluation majority to construct the predictor is an oracle descriptive reference. Macro
+recall is `1 / C` when every class is represented.
 
-### Reporting requirement
-- Report the averaging scheme with every multi-class metric. Micro-averaged precision,
-  recall, F1, and accuracy are all identical under single-label multi-class assignment;
-  reporting "micro F1" as if it were independent evidence of accuracy is a restatement,
-  not a second measurement.
-- Macro averaging weights every class equally regardless of support. State the per-class
-  support alongside any macro figure, and mark classes below the declared minimum support
-  as low-support rather than folding them into the headline.
+**Uniform random class:** sample each class with probability `1 / C`. Expected accuracy
+= `1 / C`, expected per-class recall = `1 / C`, and population precision for class `c`
+is `p_c`; finite samples use the frozen undefined-case convention.
 
----
+**Prior-matched random class:** sample class `c` with probability `q_c`. Expected evaluation
+accuracy is `sum_c p_c q_c`, reducing to `sum_c p_c^2` only when `q_c = p_c`. This is one
+stochastic reference, not the uniquely correct no-skill comparator.
 
-## Multi-Label Classification
+### Multi-Label Classification
 
-Each instance carries a subset of `L` labels. Per-label prevalence `p_l` varies, and the
-binary formulas apply **per label**, not to the problem as a whole.
+Each instance carries a subset of `L` labels with evaluation prevalence `p_l`; estimate
+prediction-time priors `q_l` without evaluation labels.
 
-### Baselines
-- **All-negative** (predict no labels): subset accuracy = share of instances with an
-  empty true label set; per-label recall = 0; micro/macro F1 = 0.
-- **Per-label prior**: for each label independently, use the binary baselines above with
-  that label's own `p_l`. Report the vector, not a single collapsed number.
-- **Label-power-set majority**: predict the most frequent label combination. Subset
-  accuracy = the frequency of that combination. This is the correct baseline for exact-set
-  claims and is usually far lower than any per-label figure.
+- **All negative:** predict no labels. Subset accuracy is the share of instances with an
+  empty true label set; per-label recall is zero where positives exist.
+- **Label-power-set majority:** predict the most frequent development-set combination.
+  Subset accuracy is that chosen combination's evaluation frequency.
+- **Independent prior-matched labels:** sample label `l` as present with probability
+  `q_l`. This stochastic hard-label policy is distinct from emitting the constant
+  probability score `q_l` for every instance.
+- **Current assignment policy:** reproduce its per-label rules and volume when it is
+  deployable on the evaluation population.
 
-### Metric selection
-| Claim being made | Metric | Notes |
-|---|---|---|
-| Exact label set is correct | Subset (exact-match) accuracy | Harshest; drops to near zero as `L` grows |
-| Overall label-decision quality | Micro-averaged precision/recall/F1 | Dominated by high-prevalence labels |
-| Per-label quality treated equally | Macro-averaged precision/recall/F1 | Dominated by rare labels; report support |
-| Per-instance label overlap | Sample-averaged F1, Hamming loss | Averages over instances, not labels |
+Undefined precision or F1 components, averaging, empty sets, and label omission are
+evaluator choices; freeze them with `topics/core/evaluator_semantics.md`.
 
-### Rules
-- Micro, macro, and sample averaging answer different questions and are not
-  interchangeable. Report which one, and do not compare a micro figure from one model
-  against a macro figure from another.
-- Thresholds are per-label. A single global threshold across labels with different
-  prevalence is a modeling choice that must be declared, not a default.
-- Report the number of labels, per-label support, and cardinality (mean labels per
-  instance). Micro F1 without per-label support hides total failure on rare labels.
-- Label correlation invalidates treating per-label intervals as independent. Resample the
-  instance, recompute all labels within each replicate.
+### Fixed-Budget Alerts
 
----
+For point- or item-level anomaly triage, a budget-matched random policy selects the same
+number of eligible alerts uniformly at random. Compare it with the current alert policy
+under the same population, budget, and point/item definition. This hard-alert comparator
+does not itself define AP or AUC.
 
-## Regression
+## Scores and Ordered Candidate Lists
 
-### Predict Mean Baseline
-- Fit `c = mean(y_train)` and evaluate `RMSE(y_test, c)` and `MAE(y_test, c)`.
-- Using `mean(y_test)` is an oracle test-set baseline, not a deployable predictor.
+### Binary Score References
 
-### Relative RMSE
-- Prefer `RMSE_model / RMSE_train_mean_baseline` on the same evaluation rows.
-- A ratio below 1 beats the deployable constant baseline; a ratio above 1 does not.
+- **Constant score:** assign the same score to every eligible case. Its AP and AUC are
+  determined by the frozen evaluator's tie and undefined-case conventions.
+- **Random score/order:** assign label-independent continuous random scores or uniformly
+  permute the fixed eligible cases. Population-level no-skill PR precision is prevalence.
+  For a finite list, expected AP under uniform random ordering is not generally equal to
+  prevalence and depends on support and the AP convention. Use exact enumeration when
+  feasible or seeded permutations evaluated by the frozen evaluator.
+- **Prior model or heuristic:** score the same eligible population with the previous model
+  or deployable rule. This is usually the primary score comparator.
 
-### For Time Series
-- Naive baseline: predict previous value (lag-1)
-- For seasonal period `m`, scale test absolute errors by the mean in-sample training
-  error `mean(|y_t - y_{t-m}|)`.
+Evaluate constant and random scores with the AUC and tie contract in
+`topics/core/evaluator_semantics.md`.
 
-**Intermittent demand guard**: If the MASE denominator is zero, MASE is undefined.
-RMSSE may help for intermittent but non-constant series, but it is also undefined when
-its training scaling denominator is zero:
-```
-RMSSE = sqrt(mean(test_error²) / mean((y_t - y_{t-m})² on training))
-```
-Report an unscaled error and an explicitly defined baseline when either scale is zero.
+### Multi-Class and Multi-Label Scores
 
----
+A constant per-class or per-label prior emits probabilities, not hard labels. Evaluate it
+with probability metrics, or with classwise ranking metrics only after declaring the
+one-vs-rest decomposition, evaluated labels, and averaging. If probabilities are converted
+to hard outputs, define the argmax, threshold, abstention, or capacity rule separately.
 
-## Probabilistic Forecasting
+### Ranked Candidate Lists
 
-Applies when the deliverable is a predictive distribution, a set of quantiles, or a
-prediction interval rather than a point forecast. Point-forecast accuracy is not evidence
-about interval quality, and a model can win on MASE while its intervals are badly
-miscalibrated.
+For NDCG, ranking MAP, MRR, or cutoff metrics, generate random references by independently
+permuting each query's frozen eligible candidate set. Preserve candidates, relevance,
+query weights, and the no-relevant-query policy. Report the seed, replicate count, Monte
+Carlo mean, and simulation error when simulation is used.
 
-### Baselines
-- **Empirical-residual baseline**: form intervals from the in-sample residual quantiles of
-  the naive or seasonal-naive point forecast. This is the deployable no-skill interval.
-- **Climatological / unconditional baseline**: quantiles of the training target
-  distribution, ignoring covariates. A conditional model that does not beat this has not
-  demonstrated conditional skill.
-- Do not use a Gaussian interval derived from in-sample RMSE as a baseline unless
-  normality and homoscedasticity have been checked; it understates tails on most demand
-  and financial series.
+Popularity is a candidate comparator only when historical frequency is available at
+prediction time and represents a plausible simple policy. It is not a universal ranking
+baseline and may be exposure-confounded. Prefer the current ranker or a task-specific
+heuristic when popularity is irrelevant.
 
-### Scoring rules
-- **Pinball (quantile) loss** at quantile level `τ`, for forecast `q` and outcome `y`:
-  ```
-  L_τ(q, y) = τ · max(y - q, 0) + (1 - τ) · max(q - y, 0)
-  ```
-  Report the quantile levels evaluated and average over them explicitly. A single averaged
-  pinball number hides which tail is failing.
-- **CRPS** generalizes pinball loss over all quantile levels and reduces to MAE when the
-  forecast is a point mass, which makes CRPS and MAE directly comparable in units but not
-  interchangeable in meaning.
-- Both are proper scoring rules: they are minimized by the true predictive distribution,
-  so they can be optimized directly. Interval coverage alone is not proper and can be
-  gamed by widening intervals.
+For ranker isolation, use identical per-query candidates. For end-to-end systems,
+candidate generation may differ, but evaluate against a common query population,
+eligibility universe, catalog snapshot, and relevance policy; report candidate recall
+separately from conditional ranking quality.
 
-### Calibration
-- **PICP** (prediction interval coverage probability) = share of outcomes falling inside
-  the nominal interval. For a nominal 90% interval, target 90%.
-- Report PICP **with** interval width (MPIW or a normalized width). Coverage without width
-  is not evidence of a useful forecast: an arbitrarily wide interval achieves any coverage.
-- Report coverage per horizon. Aggregate coverage routinely masks correct short-horizon
-  and badly undercovered long-horizon intervals.
-- Coverage is itself an estimate. Report its uncertainty at the independent unit (series or
-  temporal block), not per forecast point.
+### Anomaly Scores
 
----
+With verified point/item labels, use the binary score references above and report the
+positive rate. With no verified labels, empirical precision, recall, AP, and AUC are not
+available; compare alert volume and score behavior with the current policy without
+inventing outcome quality. Event detection requires an event evaluator rather than a
+point-wise binary reduction.
 
-## Anomaly Detection
+Use deployable domain or seasonal rules as additional comparators when available; do not
+assume a universal standard-deviation cutoff.
 
-Anomaly detection may be supervised, delayed-label, positive-unlabeled, event-based, or
-fully unsupervised; state which setting applies before choosing a baseline.
+## Numeric Point Predictions
 
-### Unsupervised (no labels)
-- **Contamination rate baseline**: If you flag top X% of scores as anomalies, the expected precision of a random flag = actual_anomaly_rate (if known from domain knowledge) or undefined (document this gap explicitly).
-- **Domain rule or seasonal baseline**: reproduce the current alert budget and decision
-  rule; do not assume a universal standard-deviation cutoff.
+### Regression
 
-### Semi-supervised / labeled evaluation
-- If a labeled anomaly set exists: treat as binary classification with extreme imbalance.
-  - AP_random = anomaly_rate (same as classification)
-  - Evaluate with AP and Precision@k where k = analyst review capacity
-- **Operating caveat**: overall AUC-ROC is usually insufficient for a constrained alert
-  queue; pair discrimination with AP, event recall, detection delay, and precision at capacity.
+- Fit `c = mean(y_train)` and evaluate it on the same test rows as the model. Using
+  `mean(y_test)` is an oracle test-set comparator, not a deployable predictor.
+- Compare `RMSE_model / RMSE_train_mean_baseline` on the same rows; interpretation lives
+  in `topics/core/metric_interpretation.md`.
 
-### No verified thresholds exist for anomaly scores
-Score distributions are algorithm-specific. Compare against the current policy and
-task-appropriate simple rules; synthetic anomalies are stress tests, not validity evidence.
+### Point Forecasting
 
-### Point-adjustment protocol warning (time series)
-Point adjustment (PA) credits every timestamp in a ground-truth anomaly segment as
-detected when the model flags **any** single timestamp inside it, then scores the result
-as if it were point-wise. This inflates precision, recall, and F1 by a large and
-unbounded margin, and the inflation grows with segment length. Under PA, a random
-detector flagging a small fraction of timestamps can score above 0.9 F1 on standard
-benchmarks. A PA-adjusted F1 is not comparable to a point-wise F1 and is not evidence of
-detection quality.
+- Naive comparator: predict the previous value.
+- For seasonal period `m`, use the seasonal-naive forecast and scale MASE by the mean
+  in-sample training error `mean(|y_t - y_{t-m}|)`.
+- Use the MASE/RMSSE definitions and zero-denominator behavior in
+  `topics/core/evaluator_semantics.md`.
 
-Required handling:
-- Ask whether reported time-series anomaly results used point adjustment before accepting
-  them. Many published and library-default results do, without stating it.
-- If PA numbers are the only ones available, label the conclusion as protocol-dependent
-  and do not compare them against point-wise or event-wise numbers.
-- Prefer stating the evaluation unit explicitly instead: point-wise metrics, or event-wise
-  metrics that count each ground-truth segment once (detected / missed) and report
-  detection delay and false-alarm rate per unit time separately.
-- Report the segment-length distribution. It determines the size of the PA distortion.
+## Quantiles, Intervals, and Predictive Distributions
 
----
+- **Empirical residual:** form intervals from in-sample residual quantiles of a naive or
+  seasonal-naive point forecast.
+- **Climatological/unconditional:** use quantiles of the training target distribution while
+  ignoring covariates.
+- Do not use Gaussian intervals derived from in-sample RMSE unless normality and
+  homoscedasticity have been checked.
 
-## Ranking (NDCG, MAP)
-
-### Random Baseline for NDCG@k
-- Depends on relevance distribution — do not assume a fixed value
-- Compute empirically with seeded score shuffles. Choose enough Monte Carlo replicates
-  that simulation error is negligible for the decision, and report that error.
-
-### Popularity Baseline
-- Rank by item frequency in training set
-- Popularity is a common operational baseline, but whether it beats random is data-dependent.
-- If the model does not beat popularity on the predefined ranking metric, it has not
-  demonstrated improvement on that metric; justify any value through other predeclared objectives.
-
----
-
-## Imbalanced Data — Metric Selection
-
-Metric choice should follow the operating decision rather than a universal prevalence cutoff.
-
-| Decision need | Primary evidence | Usually insufficient alone |
-|---|---|---|
-| Rank discrimination | AUC-ROC or AP with prevalence | Accuracy |
-| Rare-positive retrieval | AP plus precision/recall at capacity | Overall AUC-ROC |
-| Fixed operating policy | Expected loss or constrained precision/recall | Global ranking metric |
-| Calibrated probability | Log loss, Brier score, reliability | F1 |
-
-For rare positives, usually pair AP with operating-point evidence because AUC-ROC does
-not reflect false discovery rate. AP changes with prevalence, so report prevalence and
-avoid comparing AP across populations without accounting for the population change.
-
-Common misconception to avoid: "all-negative classifier gets AUC-ROC = 0.97 on 3%
-positive data." This is wrong — that 0.97 is **accuracy**, not AUC-ROC.
+These sections define forecast comparators. Pinball loss, CRPS, coverage, interval
+boundaries, and horizon aggregation belong to `topics/core/evaluator_semantics.md`; their
+meaning belongs to `topics/core/metric_interpretation.md`.

@@ -17,15 +17,18 @@ evaluation design, uncertainty, and a conclusion scoped to the available evidenc
 ## Workflow
 
 1. **Apply the universal protocol.** Establish the estimand, population, split, label
-   maturity, support, metric implementation, baseline, operating point, and independent
-   unit with `topics/core/evaluation_protocol.md`.
-2. **Load one domain overlay when applicable.** Use the exact route below; do not load
+   maturity, support, operating point, and independent unit with
+   `topics/core/evaluation_protocol.md`.
+2. **Load core guidance by concern.** Use `topics/core/baselines.md` to construct
+   comparators, `topics/core/metric_interpretation.md` to interpret metric meaning, and
+   `topics/core/evaluator_semantics.md` when representation or implementation choices can
+   change a result.
+3. **Load one domain overlay when applicable.** Use the exact route below; do not load
    unrelated domains.
-3. **Load topic guidance conditionally.** Use baselines and metric interpretation for
-   calculation or interpretation; diagnosis only for weak, suspicious, or conflicting
-   results; decision topics only for capacity, KPI, or value questions; reporting only
-   when a formal conclusion or report is requested.
-4. **Synthesize without asserting causes.** State the signal, compatible hypotheses,
+4. **Load remaining topics conditionally.** Use diagnosis only for weak, suspicious, or
+   conflicting results; decision topics only for capacity, KPI, or value questions; and
+   reporting only when a formal conclusion or report is requested.
+5. **Synthesize without asserting causes.** State the signal, compatible hypotheses,
    discriminating checks, supported conclusion, and primary next action.
 
 ## Routing
@@ -33,13 +36,14 @@ evaluation design, uncertainty, and a conclusion scoped to the available evidenc
 | Task or domain | Load |
 |---|---|
 | Every evaluation | `topics/core/evaluation_protocol.md` |
-| Binary or multi-class classification, regression, forecasting, anomaly detection, or ranking | Relevant sections of `topics/core/baselines.md` and `topics/core/metric_interpretation.md` |
-| Multi-label classification | `topics/core/baselines.md` (Multi-Label) and `topics/core/metric_interpretation.md` (Multi-Label) |
-| Probabilistic or interval forecasting | `topics/core/baselines.md` (Probabilistic Forecasting) and `topics/core/metric_interpretation.md` (Probabilistic Forecasting) |
-| Representation learning, embeddings, retrieval, or transfer | `domains/representation_learning.md` |
+| Construct or assess a comparator | Relevant output section of `topics/core/baselines.md` |
+| Select or interpret a metric | Relevant section of `topics/core/metric_interpretation.md` |
+| AP/PR-AUC, ROC AUC, ties, undefined metrics, ranked/retrieval evaluation, NDCG/MAP, MASE/RMSSE, probabilistic evaluation, or anomaly point/event evaluation | `topics/core/evaluator_semantics.md` |
+| Generic ranking or retrieval without a representation-quality claim | Relevant core files only |
+| Representation quality, embeddings, encoder retrieval, or transfer | `domains/representation_learning.md` plus relevant core files |
 | Lead scoring | `domains/customer_analytics/lead_scoring.md` |
 | Churn prediction | `domains/customer_analytics/churn_prediction.md` |
-| Recommendation | `domains/recommendation.md` |
+| Recommendation | `domains/recommendation.md` plus relevant core files |
 
 ## Evidence Gate
 
@@ -59,8 +63,9 @@ correctly scoped conclusion.
 - Always state the baseline or explain why no universal baseline applies.
 - Report evaluation `n`, positive/relevant count, and uncertainty for headline and
   decision-critical segments.
-- Report precision, recall, and F1 only with their threshold; ranking metrics with `k`.
-  For multi-class and multi-label, also report the averaging scheme.
+- Report score-derived precision, recall, and F1 with the threshold or complete decision
+  rule. Report `k` for metrics defined or truncated at `k`; do not invent a cutoff for
+  full-list metrics. For multi-class and multi-label, also report the averaging scheme.
 - Compare models with paired uncertainty at the independent deployment unit.
 - Do not compare results produced with different candidate, gallery, normalization, or
   probe protocols without a prominent protocol-difference warning.
@@ -72,7 +77,8 @@ correctly scoped conclusion.
 
 ## Topic Index
 
-- `topics/core/` - universal protocol, baselines, and metric semantics.
+- `topics/core/` - universal protocol, comparator policies, metric interpretation, and
+  implementation-dependent evaluator semantics.
 - `topics/diagnosis/checklist.md` - ordered validity and troubleshooting checks.
 - `topics/diagnosis/general_patterns.md` - cross-domain hypotheses and discriminating checks.
 - Domain-specific diagnostics live in the relevant file under `domains/`.

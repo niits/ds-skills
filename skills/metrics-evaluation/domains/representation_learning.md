@@ -36,10 +36,15 @@ quality when relevant, and paired test-unit differences.
 
 ## Retrieval and Verification
 
+Use this section when retrieval supports a representation or encoder claim. Generic
+search or ranking evaluation uses the core ranking guidance without implying a
+representation-quality conclusion.
+
 Freeze query/gallery definitions, positives, self-match exclusion, group separation,
-similarity, normalization, `k`, gallery size, ties, duplicate policy, and exact versus
-approximate search. Report Recall@K, Precision@K, mAP, MRR, or NDCG only as appropriate
-to the relevance definition. Count queries with no valid positives explicitly.
+similarity, normalization, cutoff when applicable, gallery size, duplicate policy, and
+exact versus approximate search. Apply `topics/core/evaluator_semantics.md` for ties,
+MAP/NDCG definitions, and no-positive-query handling. Report Recall@K, Precision@K, mAP,
+MRR, or NDCG only as appropriate to the relevance definition.
 
 For verification, define genuine/impostor construction and report TAR at deployment-
 relevant FAR values, with thresholds selected on validation data. Bootstrap identities

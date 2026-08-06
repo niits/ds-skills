@@ -64,6 +64,13 @@ Add for representation claims: encoder checkpoint/provenance, claim scope, probe
 fine-tuning budget, query/gallery protocol, contamination status, encoder/probe seed
 levels, datasets/tasks, and the breadth supported by the evidence.
 
+### Ranking and Retrieval Profile
+
+Add for score/rank claims: query weighting, eligible universe, candidate protocol,
+relevance definition, cutoff or full-list declaration, gain/discount or AP convention,
+ties, no-positive-query handling, evaluator version, and whether the result is conditional
+on candidates or end to end.
+
 ## Conclusion Block
 
 ```markdown
@@ -77,7 +84,7 @@ levels, datasets/tasks, and the breadth supported by the evidence.
 | Useful margin | [value and rationale; result against margin] |
 | Operating point | [threshold or k, volume] |
 | Protocol | [split, evaluator, averaging scheme, independent unit] |
-| Optional profile | [diagnostic, economic, probabilistic forecasting, multi-class/multi-label, representation, or none] |
+| Optional profile | [diagnostic, economic, probabilistic forecasting, multi-class/multi-label, ranking/retrieval, representation, or none] |
 | Required action | [one action] |
 ```
 

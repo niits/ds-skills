@@ -15,7 +15,8 @@ operating-value, or controlled-test conclusion. Document Steps 3-6 as deferred.
   or exchangeable cases? Point-in-time validity is required regardless of split type.
 - [ ] Does test prevalence represent the intended production population? Investigate legitimate temporal/population differences; equality with train is not required.
 - [ ] Are there any features in the model that wouldn't exist at prediction time? (leakage)
-- [ ] Was the metric computed correctly? (check: sklearn AP vs manual calculation)
+- [ ] Was the metric reproduced under the frozen evaluator contract, including output
+  representation, ties, interpolation, undefined cases, and candidate sets?
 
 **Red flag**: If metrics are suspiciously high on val but low on test → leakage or distribution shift.
 
@@ -104,6 +105,12 @@ achievability unresolved when they are unavailable.
 - [ ] Are intervals clustered at identity, session, or query-group level rather than per pair or per trial?
 - [ ] Is the backbone truly frozen when a frozen probe is claimed, with equal search budgets across encoders?
 - [ ] Does model ordering survive multiple seeds and at least one complementary task or protocol?
+
+## Anomaly Evaluation Audit
+
+- [ ] Are score ranking, hard point alerts, and event detection reported separately?
+- [ ] Is point adjustment absent or explicitly declared and isolated from point-wise and
+  event-wise comparisons?
 
 ---
 

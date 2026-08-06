@@ -23,4 +23,5 @@ explicit for `metrics-evaluation`.
 - `rounds/round6_post_refactor_review.md`
 - `rounds/round7_final_verification.md`
 - `rounds/round8_correctness_and_effectiveness_audit.md`
+- `rounds/round9_evaluator_separation_arbitration.md`
 - `debate_log.md` summarizes the complete process.

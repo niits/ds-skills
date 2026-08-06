@@ -54,7 +54,9 @@ When business only acts on top-k predictions (e.g., "flag top 200 accounts for r
 - AP summarizes the full curve and remains useful for model comparison, but it is secondary to the operating decision
 - **Precision@k** is what matters: of the top 200 flagged, how many are actually positive?
 - Report Precision@k where k = actual review capacity
-- Also report: how does Precision@k compare to baseline (random = positive_rate)?
+- Also report how Precision@k compares with the current policy and with uniform random
+  selection from the same fixed candidate population, whose expected precision is that
+  population's positive rate.
 
 ---
 

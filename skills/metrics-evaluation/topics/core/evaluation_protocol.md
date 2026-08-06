@@ -9,7 +9,8 @@ Before interpreting metrics, establish:
   dates, and independent deployment unit.
 - Label maturity, censoring, and entity overlap across splits.
 - Dataset size, positive/relevant count, prevalence, and policy volume.
-- Metric implementation, averaging/interpolation, threshold, or ranking cutoff `k`.
+- Model-output representation and frozen evaluator contract: implementation, orientation,
+  averaging, interpolation, ties, undefined cases, threshold, and cutoff when applicable.
 - Current heuristic, prior model, and relevant no-skill baseline.
 - Business action, capacity, costs, constraints, and required operating point when the
   requested conclusion concerns operating or economic value.
@@ -17,8 +18,12 @@ Before interpreting metrics, establish:
   scheme, and per-label threshold policy.
 - For probabilistic forecasts: quantile levels, scoring rule, nominal interval level, and
   the horizon at which coverage is claimed.
+- For anomaly detection: supervised, delayed-label, positive-unlabeled, event-based, or
+  fully unsupervised setting and the available label evidence.
 - For representations: claim being tested, frozen/fine-tuned status, probe recipe,
   query/gallery construction, contamination controls, and training-seed count.
+
+Load `topics/core/evaluator_semantics.md` when these choices can change the reported result.
 
 Assume only non-critical descriptive context. If a decision-critical item is unknown,
 return `INSUFFICIENT EVIDENCE`, list what is missing, and stop before the requested

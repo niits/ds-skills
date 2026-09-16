@@ -2,8 +2,8 @@
   "$schema": "https://json.schemastore.org/claude-code-plugin-manifest.json",
   "name": "ds-skills",
   "displayName": "Data Science Skills",
-  "version": "0.1.0",
-  "description": "Data science skills for Databricks, model evaluation, visualization, banking hypotheses, and feature onboarding.",
+  "version": "0.2.0",
+  "description": "Skills for data science workflows and evidence-driven refinement of existing agent skills.",
   "author": {
     "name": "niits",
     "url": "https://github.com/niits"
@@ -14,6 +14,9 @@
     "data-science",
     "databricks",
     "machine-learning",
-    "visualization"
+    "visualization",
+    "agent-skills",
+    "skill-authoring",
+    "skill-review"
   ]
 }

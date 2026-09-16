@@ -10,7 +10,7 @@
     {
       "name": "ds-skills",
       "source": "./",
-      "description": "Data science skills for Databricks, model evaluation, visualization, banking hypotheses, and feature onboarding",
+      "description": "Skills for data science workflows and evidence-driven refinement of existing agent skills",
       "author": {
         "name": "niits",
         "url": "https://github.com/niits"
@@ -21,7 +21,10 @@
       "tags": [
         "data-science",
         "databricks",
-        "machine-learning"
+        "machine-learning",
+        "agent-skills",
+        "skill-authoring",
+        "skill-review"
       ]
     },
     {

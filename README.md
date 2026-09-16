@@ -1,8 +1,8 @@
 # DS Skills
 
-A five-skill Claude Code plugin for data science work: Spark/Delta and MLflow workflows,
-model evaluation, visualization, banking investigations, and feature onboarding for lead
-and credit scoring.
+A six-skill Claude Code plugin for data science work and skill maintenance: Spark/Delta and
+MLflow workflows, model evaluation, visualization, banking investigations, feature onboarding
+for lead and credit scoring, and evidence-driven refinement of existing agent skills.
 
 The repository contains agent instructions, reference documents, and two optional
 matplotlib helper modules. It is not a Python package and does not install notebook or
@@ -14,8 +14,9 @@ is platform-independent.
 
 Use a current Claude Code release with plugin marketplace support.
 
-The visualization skill's instructions are also designed for Kiro CLI and OpenCode skill loaders.
-This repository currently ships distribution manifests only for Claude Code.
+The visualization and skill-refinement instructions use portable conventions suitable for Kiro CLI
+and OpenCode skill loaders. This repository currently ships distribution manifests only for Claude
+Code; other clients require installation through one of their supported skill directories.
 
 ```text
 /plugin marketplace add niits/ds-skills
@@ -31,6 +32,7 @@ Plugin skills use the `ds-skills` namespace:
 /ds-skills:visualization
 /ds-skills:banking-hypothesis-generation
 /ds-skills:feature-onboarding
+/ds-skills:skill-refinement
 ```
 
 Refresh the marketplace and plugin with:
@@ -49,6 +51,7 @@ Refresh the marketplace and plugin with:
 | `visualization` | Matplotlib-only quick EDA plus statistically honest slide and infographic workflows using matplotlib or plotnine, with model-evaluation and causal overlays. | Blocks unexplained aggregation or missingness, undefined rate denominators, unsupported causal language, hidden uncertainty, and meaning that depends only on color. |
 | `banking-hypothesis-generation` | Competing mechanisms, falsifiable predictions, and investigation designs for credit risk, fraud, customer analytics, AML, and model validation. | Starts from a measured observation, requires predeclared falsification conditions, and checks data quality and population shift before model redesign. |
 | `feature-onboarding` | Hypothesis-first onboarding of feature groups into binary lead- and credit-scoring pipelines, from source audit to production monitoring. | Requires scorecard/GBM mode selection, bitemporal point-in-time safety, incremental lift, and one untouched OOT confirmation. Recommendation-system material is an unsupported roadmap. |
+| `skill-refinement` | Evidence-driven audit and improvement of an existing agent skill in its current repository, including activation, scope, workflow, progressive disclosure, and verification. | Proposal-only first phase; target files are not edited until the user explicitly approves the exact change scope. Uses portable Agent Skills metadata for Claude Code and OpenCode compatibility. |
 
 Each skill lives at `skills/<skill-name>/SKILL.md`. Technical depth is split into focused
 supporting documents under directories such as `references/`, `domains/`, and
@@ -104,13 +107,12 @@ claude --plugin-dir .
 Validate both distribution manifests:
 
 ```bash
-claude plugin validate .claude-plugin/plugin.json
+claude plugin validate .claude-plugin/plugin.json --strict
 claude plugin validate .claude-plugin/marketplace.json --strict
 ```
 
-The plugin intentionally omits a fixed `version`, allowing the Git commit SHA to identify
-updates. The plugin validator consequently emits a non-fatal version warning. The
-marketplace must pass strict validation.
+The plugin manifest uses semantic versioning and must be bumped when a release changes shipped
+capabilities. Both the plugin and marketplace manifests must pass strict validation.
 
 ## Publishing
 

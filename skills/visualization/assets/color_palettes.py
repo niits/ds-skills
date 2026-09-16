@@ -65,7 +65,7 @@ SEQUENTIAL_COLORMAPS = [
 # Diverging colormaps (for data with meaningful center). Safety verified against
 # RColorBrewer::brewer.pal.info's colorblindlist (mirrors colorbrewer2.org's own
 # "colorblind safe" filter) — all six below are confirmed safe, no exceptions.
-# This list must match references/color-palettes.md's "Colorblind-Safe Diverging Maps"
+# This list must match references/delivery/color-palettes.md's diverging-map table.
 # table 1:1 (no CI to catch drift mechanically — update both together).
 DIVERGING_COLORMAPS_SAFE = [
     'RdYlBu',    # Red-Yellow-Blue (reversed is common)

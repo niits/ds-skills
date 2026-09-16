@@ -124,7 +124,7 @@ claimed.
 
 `skills/visualization/assets/color_palettes.py`,
 `skills/visualization/assets/swd_style.py`, and
-`skills/visualization/references/color-palettes.md` include palette values or guidance
+`skills/visualization/references/delivery/color-palettes.md` include palette values or guidance
 attributed to the following sources:
 
 - Masataka Okabe and Kei Ito, "Color Universal Design (CUD) - How to make figures and

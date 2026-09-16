@@ -3,6 +3,14 @@
 Charts for diagnosing, validating, and communicating ML model performance.
 Used in model development, validation documents, and committee presentations.
 
+## Contents
+
+- ROC and Precision-Recall curves
+- Calibration and confusion matrices
+- Global and local feature attribution
+- Lift, KS, and PSI
+- Audience routing
+
 ---
 
 ## 1. ROC Curve
@@ -182,12 +190,12 @@ regulators and model committees expect KS as a companion to (not a replacement f
 - KS statistic = the maximum vertical distance between the two cumulative curves; mark this
   point explicitly with a vertical line or bracket and annotate the KS value and the score/decile
   at which it occurs
-- Direct-label the two curves ("Goods" / "Bads") instead of a legend — this is exactly the
-  "one accent, rest gray" pattern from `pre-attentive-attributes.md`: accent the bads curve
-  (the discriminating line), gray the goods curve
-- Report KS alongside AUC, not instead of it — KS is threshold-specific (it names *where*
-  separation is greatest); AUC summarizes discrimination across all thresholds. State the
-  evaluation cohort and score binning, since both shift the KS value
+- Direct-label the two curves ("Goods" / "Bads") when readable; otherwise use a concise legend.
+  Keep both curves distinguishable in grayscale with line style as well as color.
+- Report KS alongside AUC, not instead of it. KS is the maximum separation across thresholds;
+  the threshold where that maximum occurs is a separate argmax and must be validated out of sample
+  before operational use. State the evaluation cohort and score binning, since both shift the KS
+  value and maximizing threshold.
 - Interpretation for a practitioner: KS = 0.42 means the two population distributions are 42
   percentage points apart at their point of maximum separation; higher = better discrimination.
   There is no universal "good" threshold — state your organization's internal benchmark rather
@@ -213,8 +221,9 @@ month's scored population). Standard in credit model monitoring and governance r
 - Two complementary views, pick based on audience: (a) a **bar chart** of PSI-by-bin, one bar
   per score decile, showing where the distribution shifted; (b) a **trend line** of the overall
   PSI statistic computed each reporting period, showing drift over time
-- For the bar-by-bin view: annotate each bin's contribution to total PSI; accent bins that
-  exceed the shift threshold, gray the stable bins (again, the highlight-one/gray-rest pattern)
+- For the bar-by-bin view: annotate each bin's contribution to total PSI; accent the largest
+  prespecified contributors or bins selected by a documented contribution rule. Overall PSI
+  policy thresholds do not automatically define per-bin thresholds.
 - For the trend-line view: add horizontal reference lines at the two conventional thresholds
   (0.10, 0.25) so the reader can see at a glance which zone the current value falls in; label the
   zones "Stable" / "Moderate shift — monitor" / "Significant shift — investigate" directly on the

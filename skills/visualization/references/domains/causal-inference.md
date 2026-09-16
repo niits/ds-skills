@@ -2,6 +2,15 @@
 
 Visualization patterns for communicating causal estimates and their assumptions.
 
+## Contents
+
+- Coefficient plots
+- DiD parallel trends and event studies
+- Regression discontinuity diagnostics
+- Propensity-score overlap
+- Instrumental-variable first stage
+- Presentation order and common mistakes
+
 ## Core Principle: Assumptions are as important as estimates
 
 Causal inference charts serve two distinct purposes:
@@ -175,8 +184,10 @@ check.
   annotated directly on the chart (not buried in a caption)
 - Visually flag when F falls below the stated weak-instrument threshold (e.g. accent color
   or a reference line at the threshold)
-- Report the first-stage coefficient with its CI alongside the F-statistic — a large F with
-  a near-zero coefficient is still a weak/uninformative first stage in practice
+- Report the first-stage coefficient with its CI and units alongside the F-statistic. Coefficient
+  magnitude is unit-dependent; use partial R-squared and design-appropriate weak-instrument
+  diagnostics or robust inference to assess relevance rather than judging the raw coefficient's
+  size.
 - This chart can only speak to instrument relevance (the first-stage relationship). It
   cannot verify the exclusion restriction — state that as a caveat, since a strong first
   stage does not make the instrument valid

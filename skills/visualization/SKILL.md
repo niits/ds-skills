@@ -1,74 +1,47 @@
 ---
 name: visualization
-description: Make charts that communicate for data science on Databricks. Use when building exploratory, publication, model-evaluation, causal-inference, or stakeholder figures.
-allowed-tools: Read Write Edit Bash
+description: Use this skill when creating or critiquing statistically honest charts, making a quick EDA plot, designing a slide or infographic, choosing an encoding, teaching Grammar of Graphics or plotnine, or visualizing model-evaluation or causal-inference results.
 license: MIT; third-party notices apply
+compatibility: Designed for Kiro CLI, Claude Code, and OpenCode; Python examples require the libraries they import.
 metadata:
     skill-author: ds-skills
     domain: general
-    adapted-for: Databricks (display(fig) for inline rendering; %md cells for narrative)
 ---
 
-# Visualization for Data Scientists
+# Visualization
 
-## Principles
+Use progressive disclosure: classify the task, read the mapped reference, and load additional
+files only when the task needs them. Do not preload the entire `references/` directory.
 
-Apply Storytelling with Data (SWD) to every chart and choose the renderer by output goal,
-not habit. Publication submission mechanics such as venue-specific dimensions and DPI
-remain governed by the target venue.
+## Primary Routing
 
-## Library Routing
+| User intent | Required reference |
+|---|---|
+| Quick EDA, notebook check, inspect/debug a distribution or relationship | `references/workflows/quick-eda.md` |
+| Shared slide, infographic, report, or explanatory chart | `references/workflows/slide-infographic.md` |
+| Learn GoG, use plotnine, or decompose/reconstruct a chart | `references/foundations/grammar-of-graphics.md` |
+| Critique or validate an existing chart | `references/delivery/audit-and-delivery.md` plus the closest topic reference below |
 
-- **Interactive EDA:** Plotly first; fall back to plotnine for grammar-based statistical
-  layers, then matplotlib for full control.
-- **Static paper/journal figure:** matplotlib/seaborn; plotnine for naturally faceted,
-  grouped, or layered grammar-of-graphics work.
-- **Stakeholder slide:** matplotlib with slide-scale typography and direct labels.
-- **Interactive dashboard/report:** Plotly.
-- **Model evaluation:** `references/model-evaluation-viz.md`.
-- **Causal inference:** `references/causal-inference-charts.md`.
+Quick EDA uses matplotlib only. A request for plotnine code follows the GoG route or the shared
+artifact route, not Quick EDA.
 
-Implementation patterns and fallbacks are in `references/goal-based-workflows.md`.
+## Topic Routing
 
-## Workflow
+| Need | Load |
+|---|---|
+| Choose a chart or encoding | `references/foundations/chart-selection.md` |
+| Audit data, uncertainty, accessibility, captions, or delivery | `references/delivery/audit-and-delivery.md` |
+| Color palette or color-vision validation | `references/delivery/color-palettes.md` |
+| Attention, layout, direct labels, or decluttering | `references/delivery/attention-and-layout.md` |
+| Multi-slide narrative or audience adaptation | `references/delivery/narrative-structure.md` |
+| Non-obvious matplotlib implementation | `references/implementations/matplotlib-patterns.md` |
+| Model-performance chart | `references/domains/model-evaluation.md` |
+| Causal estimate or identifying-assumption diagnostic | `references/domains/causal-inference.md` |
+| Reusable matplotlib helpers | `assets/swd_style.py`, `assets/color_palettes.py` |
 
-1. **Audit before plotting.** Establish grain, filters, time semantics, missingness,
-   duplicates, weights, aggregation, denominator, and support. Use
-   `references/chart-audit-and-delivery.md`.
-2. **State one Big Idea.** If the intended takeaway cannot be written in one sentence,
-   do not plot yet. Use `references/context-setting.md`.
-3. **Choose the chart.** Match form to message with `references/chart-selection.md`.
-4. **Declutter.** Remove non-informative borders, gridlines, legends, and decoration via
-   `references/clutter-elimination.md`.
-5. **Focus attention.** Use position, color, size, labels, and redundant encodings from
-   `references/pre-attentive-attributes.md` and `references/color-palettes.md`.
-6. **Design and narrate.** Apply alignment, whitespace, typography, an insight title,
-   and useful annotation using `references/design-principles.md`,
-   `references/narrative-structure.md`, and `references/audience-adaptation.md`.
-7. **Validate and deliver.** Check statistical honesty, accessibility, rendering, and
-   adjacent data using `references/chart-audit-and-delivery.md`.
+## Common Behavior
 
-## Hard Rules
-
-- `BLOCKED`: denominator, aggregation, or missing-data treatment cannot be explained.
-- Use causal language only when the identification design supports it.
-- Retain material uncertainty, limitations, subgroup harms, period, denominator, and source.
-- Do not encode essential meaning with color or hover alone.
-- Every delivered chart needs a concise takeaway, meaningful alt text, and accessible
-  adjacent data or a downloadable table.
-- In Databricks, use `display(fig)` for matplotlib; call `p.draw()` before displaying a
-  plotnine figure; use `fig.show()` for Plotly.
-
-## References
-
-- `references/goal-based-workflows.md` - renderer choice and goal-specific implementation.
-- `references/chart-audit-and-delivery.md` - pre-plot audit, accessibility, and delivery.
-- `references/context-setting.md`, `chart-selection.md`, `clutter-elimination.md` - SWD setup.
-- `references/pre-attentive-attributes.md`, `design-principles.md`,
-  `narrative-structure.md`, `audience-adaptation.md` - focus and communication.
-- `references/grammar-of-graphics.md` - plotnine API and appropriate uses.
-- `references/data-visualization.md`, `matplotlib-examples.md` - patterns and code.
-- `references/color-palettes.md`, `publication-guidelines.md`, `style-guide.md` - color,
-  rigor, captions, and accessibility.
-- `references/model-evaluation-viz.md`, `causal-inference-charts.md` - specialist charts.
-- `assets/swd_style.py`, `assets/color_palettes.py` - reusable matplotlib helpers.
+- Apply specialist references as overlays on the selected primary workflow.
+- Interpret results only after inspecting rendered output; otherwise mark interpretation pending.
+- Ask one short clarification only when the artifact or audience would change the workflow.
+- Routing here takes precedence; detailed rules live in the mapped reference.

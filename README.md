@@ -14,6 +14,9 @@ is platform-independent.
 
 Use a current Claude Code release with plugin marketplace support.
 
+The visualization skill's instructions are also designed for Kiro CLI and OpenCode skill loaders.
+This repository currently ships distribution manifests only for Claude Code.
+
 ```text
 /plugin marketplace add niits/ds-skills
 /plugin install ds-skills@niits-ds-skills
@@ -43,7 +46,7 @@ Refresh the marketplace and plugin with:
 | --- | --- | --- |
 | `databricks` | Spark/Delta profiling, efficient joins and windows, distributed EDA, feature engineering, wide modeling datasets, MLflow packaging, Unity Catalog aliases, and batch inference. | No unbounded collection, unpartitioned large windows, hidden notebook state, or confusion between a Delta snapshot and a per-row as-of join. Targets Databricks Runtime 13+, Spark 3.4+, and MLflow 2.x. |
 | `metrics-evaluation` | Baseline-anchored, protocol-aware evaluation for binary, multi-class, and multi-label classification, regression, point and probabilistic forecasting, anomaly detection, ranking and recommendation, churn, lead scoring, and representation learning. | Returns `INSUFFICIENT EVIDENCE` instead of a decision conclusion when decision-critical evaluation context is missing. Descriptive and partial-evidence answers stay in scope. No domain overlay for credit or fraud; those route to the generic classification and imbalanced-data guidance. |
-| `visualization` | Accessible and statistically honest EDA, publication, stakeholder, model-evaluation, and causal-inference charts using Plotly, plotnine, matplotlib, or seaborn. | Blocks unexplained denominators or aggregation, unsupported causal language, hidden uncertainty, and meaning that depends only on color or hover. |
+| `visualization` | Matplotlib-only quick EDA plus statistically honest slide and infographic workflows using matplotlib or plotnine, with model-evaluation and causal overlays. | Blocks unexplained aggregation or missingness, undefined rate denominators, unsupported causal language, hidden uncertainty, and meaning that depends only on color. |
 | `banking-hypothesis-generation` | Competing mechanisms, falsifiable predictions, and investigation designs for credit risk, fraud, customer analytics, AML, and model validation. | Starts from a measured observation, requires predeclared falsification conditions, and checks data quality and population shift before model redesign. |
 | `feature-onboarding` | Hypothesis-first onboarding of feature groups into binary lead- and credit-scoring pipelines, from source audit to production monitoring. | Requires scorecard/GBM mode selection, bitemporal point-in-time safety, incremental lift, and one untouched OOT confirmation. Recommendation-system material is an unsupported roadmap. |
 
